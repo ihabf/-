@@ -1,194 +1,185 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>لعبة كيلتا 🧠⚡</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: "Tahoma", sans-serif;
-      background: #111;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لعبة كيلتا 🧠⚡</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Tahoma", sans-serif;
+      background: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
 
-    .chat-container {
-      flex: 1;
-      display: flex;
-      flex-direction: row;
-      overflow: hidden;
-    }
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+    }
 
-    /* منطقة الشات */
-    #messages {
-      flex: 3;
-      padding: 10px;
-      overflow-y: auto;
-      background: #1a1a1a;
-      border-left: 1px solid #333;
-      transition: height 0.3s;
-    }
+    /* منطقة الشات */
+    #messages {
+      flex: 3;
+      padding: 10px;
+      overflow-y: auto;
+      background: #1a1a1a;
+      border-left: 1px solid #333;
+      transition: height 0.3s;
+    }
 
-    /* قائمة الأشخاص */
-    #users {
-      flex: 1;
-      background: #222;
-      padding: 10px;
-      border-right: 1px solid #333;
-      overflow-y: auto;
-    }
+    /* قائمة الأشخاص */
+    #users {
+      flex: 1;
+      background: #222;
+      padding: 10px;
+      border-right: 1px solid #333;
+      overflow-y: auto;
+    }
 
-    /* حقل الإدخال */
-    .input-area {
-      display: flex;
-      padding: 10px;
-      background: #000;
-      border-top: 1px solid #333;
-    }
+    /* حقل الإدخال */
+    .input-area {
+      display: flex;
+      padding: 10px;
+      background: #000;
+      border-top: 1px solid #333;
+    }
 
-    input {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      outline: none;
-      border-radius: 5px;
-      font-size: 16px;
-    }
+    input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      outline: none;
+      border-radius: 5px;
+      font-size: 16px;
+    }
 
-    button {
-      margin-left: 10px;
-      padding: 10px 20px;
-      border: none;
-      background: #00bcd4;
-      color: #fff;
-      border-radius: 5px;
-      font-size: 16px;
-    }
+    button {
+      margin-left: 10px;
+      padding: 10px 20px;
+      border: none;
+      background: #00bcd4;
+      color: #fff;
+      border-radius: 5px;
+      font-size: 16px;
+    }
 
-    /* 🎯 تعديل تصميم الهاتف */
-    @media (max-width: 700px) {
-      .chat-container {
-        flex-direction: column;
-      }
+    /* 🎯 تعديل تصميم الهاتف */
+    @media (max-width: 700px) {
+      .chat-container {
+        flex-direction: column;
+      }
 
-      #messages {
-        flex: none;
-        height: 55vh; /* تقليل الطول */
-      }
+      #messages {
+        flex: none;
+        height: 55vh; /* تقليل الطول */
+      }
 
-      #users {
-        flex: none;
-        width: 100%;
-        order: 3; /* ينزل للأسفل */
-        background: #222;
-        border-top: 1px solid #333;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        font-size: 14px;
-        padding: 6px;
-      }
+      #users {
+        flex: none;
+        width: 100%;
+        order: 3; /* ينزل للأسفل */
+        background: #222;
+        border-top: 1px solid #333;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        font-size: 14px;
+        padding: 6px;
+      }
 
-      .input-area {
-        order: 2;
-        position: relative;
-        bottom: 0;
-      }
-    }
-  </style>
+      .input-area {
+        order: 2;
+        position: relative;
+        bottom: 0;
+      }
+    }
+  </style>
 </head>
 <body>
 
-  <div class="chat-container">
-    <div id="users"></div>
-    <div id="messages"></div>
-  </div>
+  <div class="chat-container">
+    <div id="users"></div>
+    <div id="messages"></div>
+  </div>
 
-  <div class="input-area">
-    <input type="text" id="messageInput" placeholder="اكتب هنا...">
-    <button id="sendBtn">إرسال</button>
-  </div>
+  <div class="input-area">
+    <input type="text" id="messageInput" placeholder="اكتب هنا...">
+    <button id="sendBtn">إرسال</button>
+  </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded, set, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded, set, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
-      authDomain: "kelta-gmae.firebaseapp.com",
-      databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
-      projectId: "kelta-gmae",
-      storageBucket: "kelta-gmae.firebasestorage.app",
-      messagingSenderId: "247464874751",
-      appId: "1:247464874751:web:779a3120e6b422fdee72ca",
-      measurementId: "G-6C8HGRKLHS"
-    };
+    const firebaseConfig = {
+      apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
+      authDomain: "kelta-gmae.firebaseapp.com",
+      databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
+      projectId: "kelta-gmae",
+      storageBucket: "kelta-gmae.firebasestorage.app",
+      messagingSenderId: "247464874751",
+      appId: "1:247464874751:web:779a3120e6b422fdee72ca",
+      measurementId: "G-6C8HGRKLHS"
+    };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    // 🛑 التعديل: ضمان إدخال اسم مستخدم صحيح
-    let username = prompt("اكتب اسمك:");
-    while (!username || username.trim() === "") {
-      username = prompt("الرجاء إدخال اسم حقيقي للمشاركة في اللعبة:");
-    }
-    // تنظيف الاسم من المسافات البيضاء
-    username = username.trim();
-    // 🛑 نهاية التعديل
+    const username = prompt("اكتب اسمك:");
+    const usersRef = ref(db, "users");
+    const messagesRef = ref(db, "messages");
 
-    const usersRef = ref(db, "users");
-    const messagesRef = ref(db, "messages");
+    // إضافة المستخدم إلى قائمة المستخدمين
+    const userRef = push(usersRef);
+    set(userRef, username || "مجهول");
 
-    // إضافة المستخدم إلى قائمة المستخدمين
-    const userRef = push(usersRef);
-    // الآن نستخدم الاسم النظيف مباشرة
-    set(userRef, username);
+    // عرض المستخدمين
+    onValue(usersRef, (snapshot) => {
+      const usersDiv = document.getElementById("users");
+      usersDiv.innerHTML = "<strong>👥 اللاعبين:</strong> ";
+      snapshot.forEach(child => {
+        usersDiv.innerHTML += `<span style='margin:0 6px;'>${child.val()}</span>`;
+      });
+    });
 
-    // عرض المستخدمين
-    onValue(usersRef, (snapshot) => {
-      const usersDiv = document.getElementById("users");
-      usersDiv.innerHTML = "<strong>👥 اللاعبين:</strong> ";
-      snapshot.forEach(child => {
-        usersDiv.innerHTML += `<span style='margin:0 6px;'>${child.val()}</span>`;
-      });
-    });
+    // إرسال الرسائل
+    document.getElementById("sendBtn").onclick = sendMessage;
+    document.getElementById("messageInput").addEventListener("keypress", e => {
+      if (e.key === "Enter") sendMessage();
+    });
 
-    // إرسال الرسائل
-    document.getElementById("sendBtn").onclick = sendMessage;
-    document.getElementById("messageInput").addEventListener("keypress", e => {
-      if (e.key === "Enter") sendMessage();
-    });
+    function sendMessage() {
+      const input = document.getElementById("messageInput");
+      const text = input.value.trim();
+      if (!text) return;
+      push(messagesRef, { name: username, text });
+      input.value = "";
+    }
 
-    function sendMessage() {
-      const input = document.getElementById("messageInput");
-      const text = input.value.trim();
-      if (!text) return;
-      push(messagesRef, { name: username, text });
-      input.value = "";
-    }
+    // عرض الرسائل + البوت
+    onChildAdded(messagesRef, (snapshot) => {
+      const msg = snapshot.val();
+      const messagesDiv = document.getElementById("messages");
+      messagesDiv.innerHTML += `<p><strong>${msg.name}:</strong> ${msg.text}</p>`;
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-    // عرض الرسائل + البوت
-    onChildAdded(messagesRef, (snapshot) => {
-      const msg = snapshot.val();
-      const messagesDiv = document.getElementById("messages");
-      messagesDiv.innerHTML += `<p><strong>${msg.name}:</strong> ${msg.text}</p>`;
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      if (msg.text === "طش") {
+        sendBotMessage();
+      }
+    });
 
-      if (msg.text === "طش") {
-        sendBotMessage();
-      }
-    });
-
-    // بوت كيلتا
-    function sendBotMessage() {
-      const words = ["كلمة", "سرعة", "ذكاء", "تحدي", "كتابة", "إجابة", "لعبة", "مهارة", "منافسة"];
-      const randomWords = Array.from({ length: 7 }, () => words[Math.floor(Math.random() * words.length)]);
-      push(messagesRef, { name: "🤖 البوت", text: randomWords.join(" ") });
-    }
-  </script>
+    // بوت كيلتا
+    function sendBotMessage() {
+      const words = ["كلمة", "سرعة", "ذكاء", "تحدي", "كتابة", "إجابة", "لعبة", "مهارة", "منافسة"];
+      const randomWords = Array.from({ length: 7 }, () => words[Math.floor(Math.random() * words.length)]);
+      push(messagesRef, { name: "🤖 البوت", text: randomWords.join(" ") });
+    }
+  </script>
 
 </body>
 </html>
