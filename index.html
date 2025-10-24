@@ -2,189 +2,112 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>لعبة سرعة الكتابة 🏆</title>
+  <title>لعبة السرعة KelTa</title>
   <style>
-    body {
-      font-family: "Cairo", sans-serif;
-      background: #111;
-      color: #fff;
-      text-align: center;
-      padding: 30px;
-    }
-    .hidden { display: none; }
-    #login, #chat {
-      background: #222;
-      padding: 20px;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 600px;
-      margin: 0 auto;
-      box-shadow: 0 0 20px #000;
-    }
-    input {
-      padding: 10px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: none;
-      width: 80%;
-    }
-    button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      background: #0ff;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    #messages {
-      background: #111;
-      border-radius: 10px;
-      padding: 10px;
-      height: 300px;
-      overflow-y: auto;
-      text-align: left;
-      direction: ltr;
-      margin-top: 10px;
-      font-size: 17px;
-    }
-    .msg {
-      margin: 6px 0;
-      padding: 5px 10px;
-      border-radius: 8px;
-    }
-    .user { background: #0ff2; color: #0ff; text-align: right; }
-    .bot { background: #333; color: #fff; text-align: left; }
+    body { font-family: sans-serif; background: #111; color: #fff; text-align: center; padding: 20px; }
+    #chat-box { border: 1px solid #555; background: #222; height: 300px; overflow-y: auto; padding: 10px; margin-top: 10px; }
+    input, button { padding: 8px; margin: 5px; border-radius: 5px; border: none; font-size: 16px; }
+    input { width: 70%; }
+    button { background: #28a745; color: white; cursor: pointer; }
+    button:hover { background: #1f7a33; }
+    #login { margin-top: 50px; }
   </style>
 </head>
 <body>
 
   <div id="login">
-    <h2>👋 أهلاً بك في لعبة السرعة</h2>
-    <p>أدخل اسمك للبدء:</p>
-    <input type="text" id="username" placeholder="اكتب اسمك هنا">
-    <button onclick="startGame()">ابدأ</button>
+    <h2>أدخل اسمك للانضمام 🎮</h2>
+    <input id="nameInput" placeholder="اسم اللاعب" />
+    <button id="joinBtn">انضم</button>
   </div>
 
-  <div id="chat" class="hidden">
-    <h2>مرحبا <span id="playerName"></span> 👑</h2>
-    <div id="messages"></div>
-    <input type="text" id="input" placeholder="اكتب هنا...">
-    <button onclick="sendMessage()">إرسال</button>
+  <div id="game" style="display:none;">
+    <h2>مرحبًا <span id="playerName"></span> 👋</h2>
+    <div id="chat-box"></div>
+    <input id="msgInput" placeholder="اكتب رسالة..." />
   </div>
 
-  <script>
-    const words = ["نمر", "شمس", "قلم", "بحر", "نار", "ثلج", "سيف", "ذهب", "ماء", "ريح", "ضوء", "ذكاء", "سماء", "زهرة", "كرة"];
-    let player = "";
-    let activeWords = [];
-    let startTime = null;
-
-    function startGame() {
-      const name = document.getElementById("username").value.trim();
-      if (!name) return alert("الرجاء إدخال الاسم أولاً!");
-      player = name;
-      document.getElementById("playerName").textContent = name;
-      document.getElementById("login").classList.add("hidden");
-      document.getElementById("chat").classList.remove("hidden");
-      addBotMessage(`مرحباً ${name}! اكتب "طش" لتبدأ التحدي.`);
-    }
-
-    function addUserMessage(text) {
-      const div = document.createElement("div");
-      div.className = "msg user";
-      div.textContent = text;
-      document.getElementById("messages").appendChild(div);
-      scrollDown();
-    }
-
-    function addBotMessage(text) {
-      const div = document.createElement("div");
-      div.className = "msg bot";
-      div.textContent = text;
-      document.getElementById("messages").appendChild(div);
-      scrollDown();
-    }
-
-    function scrollDown() {
-      const msg = document.getElementById("messages");
-      msg.scrollTop = msg.scrollHeight;
-    }
-
-    function sendMessage() {
-      const input = document.getElementById("input");
-      const text = input.value.trim();
-      if (!text) return;
-      addUserMessage(text);
-      input.value = "";
-
-      if (text === "طش") {
-        generateWords();
-      } else if (activeWords.length > 0) {
-        checkTyping(text);
-      }
-    }
-
-    function generateWords() {
-      activeWords = [];
-      while (activeWords.length < 7) {
-        const w = words[Math.floor(Math.random() * words.length)];
-        if (!activeWords.includes(w)) activeWords.push(w);
-      }
-      addBotMessage("اكتب الكلمات التالية بسرعة:");
-      addBotMessage(activeWords.join(" "));
-      startTime = Date.now();
-    }
-
-    function checkTyping(text) {
-      if (!startTime) return;
-      const target = activeWords.join(" ");
-      if (text === target) {
-        const end = Date.now();
-        const seconds = (end - startTime) / 1000;
-        const totalWords = activeWords.length;
-        const wpm = Math.round((totalWords / seconds) * 60);
-        addBotMessage(`رائع! ✅ سرعتك ${wpm} WPM في ${seconds.toFixed(1)} ثانية.`);
-        activeWords = [];
-        startTime = null;
-      } else {
-        addBotMessage("❌ حاول مجددًا، النص غير مطابق بالضبط.");
-      }
-    }
-  </script>
   <script type="module">
-  // استيراد مكتبات Firebase المطلوبة
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-  import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
 
-  // إعدادات مشروعك من Firebase
-  const firebaseConfig = {
-    apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
-    authDomain: "kelta-gmae.firebaseapp.com",
-    databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
-    projectId: "kelta-gmae",
-    storageBucket: "kelta-gmae.firebasestorage.app",
-    messagingSenderId: "247464874751",
-    appId: "1:247464874751:web:779a3120e6b422fdee72ca",
-    measurementId: "G-6C8HGRKLHS"
-  };
+    const firebaseConfig = {
+      apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
+      authDomain: "kelta-gmae.firebaseapp.com",
+      databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
+      projectId: "kelta-gmae",
+      storageBucket: "kelta-gmae.firebasestorage.app",
+      messagingSenderId: "247464874751",
+      appId: "1:247464874751:web:779a3120e6b422fdee72ca",
+      measurementId: "G-6C8HGRKLHS"
+    };
 
-  // تهيئة Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const chatRef = ref(db, "chat");
 
-  // ✅ اختبار: أضف رسالة تجريبية إلى قاعدة البيانات
-  const messagesRef = ref(db, "testMessages");
-  push(messagesRef, { text: "مرحباً من موقعك!", time: new Date().toISOString() });
+    const loginDiv = document.getElementById("login");
+    const gameDiv = document.getElementById("game");
+    const nameInput = document.getElementById("nameInput");
+    const joinBtn = document.getElementById("joinBtn");
+    const msgInput = document.getElementById("msgInput");
+    const chatBox = document.getElementById("chat-box");
+    const playerName = document.getElementById("playerName");
 
-  // ✅ عرض كل الرسائل في الـ Console
-  onValue(messagesRef, (snapshot) => {
-    const data = snapshot.val();
-    console.log("📩 الرسائل الحالية:", data);
-  });
+    let username = "";
+    let startTime = null;
+    let expectedWords = [];
 
-  console.log("✅ تم الاتصال بنجاح بقاعدة البيانات!");
-</script>
+    joinBtn.onclick = () => {
+      username = nameInput.value.trim();
+      if (!username) return alert("اكتب اسمك أولاً!");
+      playerName.textContent = username;
+      loginDiv.style.display = "none";
+      gameDiv.style.display = "block";
+      msgInput.focus();
+    };
 
+    // عند الضغط على Enter لإرسال الرسالة
+    msgInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const text = msgInput.value.trim();
+        if (!text) return;
 
+        push(chatRef, { user: username, text, time: Date.now() });
+
+        // إذا كتب المستخدم "طش"
+        if (text === "طش") {
+          expectedWords = generateWords();
+          push(chatRef, { user: "🤖 البوت", text: expectedWords.join(" "), time: Date.now() });
+          startTime = Date.now();
+        }
+
+        // تحقق من كتابة كل الكلمات الصحيحة
+        if (expectedWords.length && text === expectedWords.join(" ")) {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const wpm = Math.round((expectedWords.length / elapsed) * 60);
+          push(chatRef, { user: "🤖 البوت", text: `سرعتك ${wpm} كلمة/دقيقة ⚡`, time: Date.now() });
+          expectedWords = [];
+        }
+
+        msgInput.value = "";
+      }
+    });
+
+    // دالة توليد 7 كلمات عشوائية
+    function generateWords() {
+      const words = ["تفاحة", "موز", "سيارة", "قلم", "بيت", "شمس", "كرة", "كتاب", "كلب", "وردة", "سيف", "شجرة"];
+      return Array.from({ length: 7 }, () => words[Math.floor(Math.random() * words.length)]);
+    }
+
+    // عرض الرسائل الجديدة فور وصولها
+    onChildAdded(chatRef, (snapshot) => {
+      const msg = snapshot.val();
+      const div = document.createElement("div");
+      div.textContent = `${msg.user}: ${msg.text}`;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+  </script>
 </body>
 </html>
