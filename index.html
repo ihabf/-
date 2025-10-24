@@ -1,83 +1,156 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>لعبة السرعة 🔥</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لعبة سرعة الكتابة 🏆</title>
   <style>
     body {
       font-family: "Cairo", sans-serif;
       background: #111;
       color: #fff;
       text-align: center;
-      padding: 50px;
+      padding: 30px;
     }
-    h1 {
-      color: #0ff;
+    .hidden { display: none; }
+    #login, #chat {
+      background: #222;
+      padding: 20px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 600px;
+      margin: 0 auto;
+      box-shadow: 0 0 20px #000;
     }
     input {
       padding: 10px;
-      font-size: 18px;
-      width: 250px;
+      font-size: 16px;
       border-radius: 8px;
       border: none;
-      text-align: center;
+      width: 80%;
     }
-    #words {
-      margin-top: 30px;
-      font-size: 22px;
-      line-height: 1.8;
-    }
-    .word {
-      display: inline-block;
-      margin: 5px;
-      padding: 5px 10px;
-      background: #333;
-      border-radius: 10px;
-      transition: transform 0.3s;
-    }
-    .word:hover {
-      transform: scale(1.1);
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
       background: #0ff;
-      color: #000;
+      cursor: pointer;
+      font-weight: bold;
     }
+    #messages {
+      background: #111;
+      border-radius: 10px;
+      padding: 10px;
+      height: 300px;
+      overflow-y: auto;
+      text-align: left;
+      direction: ltr;
+      margin-top: 10px;
+      font-size: 17px;
+    }
+    .msg {
+      margin: 6px 0;
+      padding: 5px 10px;
+      border-radius: 8px;
+    }
+    .user { background: #0ff2; color: #0ff; text-align: right; }
+    .bot { background: #333; color: #fff; text-align: left; }
   </style>
 </head>
 <body>
-  <h1>🎯 لعبة السرعة - اكتب "طش"</h1>
-  <input id="input" type="text" placeholder="اكتب هنا..." />
-  <div id="words"></div>
+
+  <div id="login">
+    <h2>👋 أهلاً بك في لعبة السرعة</h2>
+    <p>أدخل اسمك للبدء:</p>
+    <input type="text" id="username" placeholder="اكتب اسمك هنا">
+    <button onclick="startGame()">ابدأ</button>
+  </div>
+
+  <div id="chat" class="hidden">
+    <h2>مرحبا <span id="playerName"></span> 👑</h2>
+    <div id="messages"></div>
+    <input type="text" id="input" placeholder="اكتب هنا...">
+    <button onclick="sendMessage()">إرسال</button>
+  </div>
 
   <script>
-    const words = [
-      "نمر", "شمس", "كوكب", "قلم", "ماء", "سرعة", "ضوء",
-      "ريح", "بحر", "سيف", "ذكاء", "كرة", "نار", "ثلج", "ذهب"
-    ];
+    const words = ["نمر", "شمس", "قلم", "بحر", "نار", "ثلج", "سيف", "ذهب", "ماء", "ريح", "ضوء", "ذكاء", "سماء", "زهرة", "كرة"];
+    let player = "";
+    let activeWords = [];
+    let startTime = null;
 
-    const input = document.getElementById("input");
-    const wordsDiv = document.getElementById("words");
+    function startGame() {
+      const name = document.getElementById("username").value.trim();
+      if (!name) return alert("الرجاء إدخال الاسم أولاً!");
+      player = name;
+      document.getElementById("playerName").textContent = name;
+      document.getElementById("login").classList.add("hidden");
+      document.getElementById("chat").classList.remove("hidden");
+      addBotMessage(`مرحباً ${name}! اكتب "طش" لتبدأ التحدي.`);
+    }
 
-    input.addEventListener("input", () => {
-      if (input.value.trim() === "طش") {
-        input.value = "";
-        showRandomWords();
+    function addUserMessage(text) {
+      const div = document.createElement("div");
+      div.className = "msg user";
+      div.textContent = text;
+      document.getElementById("messages").appendChild(div);
+      scrollDown();
+    }
+
+    function addBotMessage(text) {
+      const div = document.createElement("div");
+      div.className = "msg bot";
+      div.textContent = text;
+      document.getElementById("messages").appendChild(div);
+      scrollDown();
+    }
+
+    function scrollDown() {
+      const msg = document.getElementById("messages");
+      msg.scrollTop = msg.scrollHeight;
+    }
+
+    function sendMessage() {
+      const input = document.getElementById("input");
+      const text = input.value.trim();
+      if (!text) return;
+      addUserMessage(text);
+      input.value = "";
+
+      if (text === "طش") {
+        generateWords();
+      } else if (activeWords.length > 0) {
+        checkTyping(text);
       }
-    });
+    }
 
-    function showRandomWords() {
-      wordsDiv.innerHTML = "";
-      let selected = [];
-      while (selected.length < 7) {
-        const random = words[Math.floor(Math.random() * words.length)];
-        if (!selected.includes(random)) selected.push(random);
+    function generateWords() {
+      activeWords = [];
+      while (activeWords.length < 7) {
+        const w = words[Math.floor(Math.random() * words.length)];
+        if (!activeWords.includes(w)) activeWords.push(w);
       }
-      selected.forEach(w => {
-        const span = document.createElement("span");
-        span.textContent = w;
-        span.className = "word";
-        wordsDiv.appendChild(span);
-      });
+      addBotMessage("اكتب الكلمات التالية بسرعة:");
+      addBotMessage(activeWords.join(" "));
+      startTime = Date.now();
+    }
+
+    function checkTyping(text) {
+      if (!startTime) return;
+      const target = activeWords.join(" ");
+      if (text === target) {
+        const end = Date.now();
+        const seconds = (end - startTime) / 1000;
+        const totalWords = activeWords.length;
+        const wpm = Math.round((totalWords / seconds) * 60);
+        addBotMessage(`رائع! ✅ سرعتك ${wpm} WPM في ${seconds.toFixed(1)} ثانية.`);
+        activeWords = [];
+        startTime = null;
+      } else {
+        addBotMessage("❌ حاول مجددًا، النص غير مطابق بالضبط.");
+      }
     }
   </script>
+
 </body>
 </html>
