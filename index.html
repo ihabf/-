@@ -22,7 +22,6 @@
       overflow: hidden;
     }
 
-    /* منطقة الشات */
     #messages {
       flex: 3;
       padding: 10px;
@@ -32,7 +31,6 @@
       transition: height 0.3s;
     }
 
-    /* قائمة الأشخاص */
     #users {
       flex: 1;
       background: #222;
@@ -41,12 +39,14 @@
       overflow-y: auto;
     }
 
-    /* حقل الإدخال */
     .input-area {
       display: flex;
       padding: 10px;
       background: #000;
       border-top: 1px solid #333;
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
     }
 
     input {
@@ -68,7 +68,6 @@
       font-size: 16px;
     }
 
-    /* 🎯 تعديل تصميم الهاتف */
     @media (max-width: 700px) {
       .chat-container {
         flex-direction: column;
@@ -76,13 +75,13 @@
 
       #messages {
         flex: none;
-        height: 55vh; /* تقليل الطول */
+        height: 55vh;
       }
 
       #users {
         flex: none;
         width: 100%;
-        order: 3; /* ينزل للأسفل */
+        order: 3;
         background: #222;
         border-top: 1px solid #333;
         display: flex;
@@ -90,11 +89,13 @@
         justify-content: center;
         font-size: 14px;
         padding: 6px;
+        overflow-x: auto;
+        white-space: nowrap;
       }
 
       .input-area {
         order: 2;
-        position: relative;
+        position: sticky;
         bottom: 0;
       }
     }
@@ -114,7 +115,15 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded, set, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+    import {
+      getDatabase,
+      ref,
+      push,
+      onChildAdded,
+      set,
+      onValue,
+      onDisconnect
+    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
@@ -130,13 +139,17 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const username = prompt("اكتب اسمك:");
     const usersRef = ref(db, "users");
     const messagesRef = ref(db, "messages");
 
-    // إضافة المستخدم إلى قائمة المستخدمين
-    const userRef = push(usersRef);
-    set(userRef, username || "مجهول");
+    // اسم المستخدم — إذا ترك فارغًا يكون "مجهول"
+    let username = prompt("اكتب اسمك:") || "مجهول";
+    username = username.trim() || "مجهول";
+
+    // إضافة المستخدم بمفتاح فريد وحذف تلقائي عند الخروج
+    const newUserRef = push(usersRef);
+    set(newUserRef, username);
+    onDisconnect(newUserRef).remove();
 
     // عرض المستخدمين
     onValue(usersRef, (snapshot) => {
@@ -148,27 +161,29 @@
     });
 
     // إرسال الرسائل
-    document.getElementById("sendBtn").onclick = sendMessage;
-    document.getElementById("messageInput").addEventListener("keypress", e => {
-      if (e.key === "Enter") sendMessage();
-    });
+    const inputEl = document.getElementById("messageInput");
+    const sendBtn = document.getElementById("sendBtn");
 
     function sendMessage() {
-      const input = document.getElementById("messageInput");
-      const text = input.value.trim();
+      const text = inputEl.value.trim();
       if (!text) return;
       push(messagesRef, { name: username, text });
-      input.value = "";
+      inputEl.value = "";
     }
+
+    sendBtn.onclick = sendMessage;
+    inputEl.addEventListener("keypress", e => {
+      if (e.key === "Enter") sendMessage();
+    });
 
     // عرض الرسائل + البوت
     onChildAdded(messagesRef, (snapshot) => {
       const msg = snapshot.val();
       const messagesDiv = document.getElementById("messages");
       messagesDiv.innerHTML += `<p><strong>${msg.name}:</strong> ${msg.text}</p>`;
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
 
-      if (msg.text === "طش") {
+      if (msg.text && msg.text.trim() === "طش") {
         sendBotMessage();
       }
     });
