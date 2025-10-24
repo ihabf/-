@@ -119,9 +119,9 @@
       getDatabase,
       ref,
       push,
-      onChildAdded,
       set,
       onValue,
+      onChildAdded,
       onDisconnect
     } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
 
@@ -147,12 +147,17 @@
     username = username.trim() || "مجهول";
 
     // إضافة المستخدم بمفتاح فريد وحذف تلقائي عند الخروج
-    const newUserRef = push(usersRef);
-    set(newUserRef, username);
-    onDisconnect(newUserRef).remove();
+    const userRef = push(usersRef);
+    set(userRef, username);
+    onDisconnect(userRef).remove();
+
+    // إنشاء مجلد خاص برسائل هذا المستخدم لتسهيل الحذف عند الخروج
+    const userMessagesRef = push(messagesRef); // مفتاح جديد لكل مستخدم
+
+    onDisconnect(userMessagesRef).remove();
 
     // عرض المستخدمين
-    onValue(usersRef, (snapshot) => {
+    onValue(usersRef, snapshot => {
       const usersDiv = document.getElementById("users");
       usersDiv.innerHTML = "<strong>👥 اللاعبين:</strong> ";
       snapshot.forEach(child => {
@@ -167,7 +172,8 @@
     function sendMessage() {
       const text = inputEl.value.trim();
       if (!text) return;
-      push(messagesRef, { name: username, text });
+      // كل رسالة تنشأ تحت مفتاح المستخدم لضمان حذفها عند الخروج
+      push(userMessagesRef, { name: username, text });
       inputEl.value = "";
     }
 
@@ -177,14 +183,22 @@
     });
 
     // عرض الرسائل + البوت
-    onChildAdded(messagesRef, (snapshot) => {
-      const msg = snapshot.val();
+    onChildAdded(messagesRef, snapshot => {
+      const msgObj = snapshot.val();
       const messagesDiv = document.getElementById("messages");
-      messagesDiv.innerHTML += `<p><strong>${msg.name}:</strong> ${msg.text}</p>`;
+
+      // msgObj قد يكون مجلد لكل مستخدم
+      for (const key in msgObj) {
+        const msg = msgObj[key];
+        messagesDiv.innerHTML += `<p><strong>${msg.name}:</strong> ${msg.text}</p>`;
+      }
+
       messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
 
-      if (msg.text && msg.text.trim() === "طش") {
-        sendBotMessage();
+      // بوت عند كتابة "طش"
+      for (const key in msgObj) {
+        const msg = msgObj[key];
+        if (msg.text && msg.text.trim() === "طش") sendBotMessage();
       }
     });
 
@@ -192,7 +206,7 @@
     function sendBotMessage() {
       const words = ["كلمة", "سرعة", "ذكاء", "تحدي", "كتابة", "إجابة", "لعبة", "مهارة", "منافسة"];
       const randomWords = Array.from({ length: 7 }, () => words[Math.floor(Math.random() * words.length)]);
-      push(messagesRef, { name: "🤖 البوت", text: randomWords.join(" ") });
+      push(userMessagesRef, { name: "🤖 البوت", text: randomWords.join(" ") });
     }
   </script>
 
