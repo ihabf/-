@@ -154,3 +154,37 @@
 
 </body>
 </html>
+<script type="module">
+  // استيراد مكتبات Firebase المطلوبة
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+  import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+
+  // إعدادات مشروعك من Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
+    authDomain: "kelta-gmae.firebaseapp.com",
+    databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
+    projectId: "kelta-gmae",
+    storageBucket: "kelta-gmae.firebasestorage.app",
+    messagingSenderId: "247464874751",
+    appId: "1:247464874751:web:779a3120e6b422fdee72ca",
+    measurementId: "G-6C8HGRKLHS"
+  };
+
+  // تهيئة Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // ✅ اختبار: أضف رسالة تجريبية إلى قاعدة البيانات
+  const messagesRef = ref(db, "testMessages");
+  push(messagesRef, { text: "مرحباً من موقعك!", time: new Date().toISOString() });
+
+  // ✅ عرض كل الرسائل في الـ Console
+  onValue(messagesRef, (snapshot) => {
+    const data = snapshot.val();
+    console.log("📩 الرسائل الحالية:", data);
+  });
+
+  console.log("✅ تم الاتصال بنجاح بقاعدة البيانات!");
+</script>
+
