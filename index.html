@@ -2,147 +2,106 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>🏁 لعبة السرعة - كيلتا</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لعبة كيلتا 🧠⚡</title>
   <style>
-    * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Cairo", sans-serif;
-      background-color: #0d0d0d;
+      font-family: "Tahoma", sans-serif;
+      background: #111;
       color: #fff;
       display: flex;
       flex-direction: column;
       height: 100vh;
     }
 
-    header {
-      text-align: center;
-      background: #111;
-      padding: 10px;
-      font-size: 22px;
-      border-bottom: 2px solid #333;
-    }
-
-    main {
+    .chat-container {
       flex: 1;
       display: flex;
       flex-direction: row;
       overflow: hidden;
     }
 
-    #chat, #users {
-      padding: 10px;
-    }
-
-    #chat {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
-
+    /* منطقة الشات */
     #messages {
-      flex: 1;
-      background: #181818;
-      border-radius: 10px;
+      flex: 3;
       padding: 10px;
       overflow-y: auto;
-      margin-bottom: 10px;
+      background: #1a1a1a;
+      border-left: 1px solid #333;
     }
 
-    .msg {
-      background: #242424;
-      padding: 8px;
-      border-radius: 8px;
-      margin: 5px 0;
+    /* قائمة الأشخاص */
+    #users {
+      flex: 1;
+      background: #222;
+      padding: 10px;
+      border-right: 1px solid #333;
+      overflow-y: auto;
     }
 
-    .bot {
-      background: #2a2a88;
-    }
-
-    #inputArea {
+    /* حقل الإدخال */
+    .input-area {
       display: flex;
-      gap: 5px;
+      padding: 10px;
+      background: #000;
+      border-top: 1px solid #333;
     }
 
-    #msgInput {
+    input {
       flex: 1;
       padding: 10px;
       border: none;
-      border-radius: 8px;
       outline: none;
+      border-radius: 5px;
       font-size: 16px;
     }
 
-    #sendBtn {
-      padding: 10px 16px;
+    button {
+      margin-left: 10px;
+      padding: 10px 20px;
       border: none;
-      border-radius: 8px;
-      background: #28a745;
+      background: #00bcd4;
       color: #fff;
-      cursor: pointer;
+      border-radius: 5px;
+      font-size: 16px;
     }
 
-    #users {
-      width: 180px;
-      background: #141414;
-      border-left: 2px solid #333;
-      overflow-y: auto;
-    }
-
-    #users h3 {
-      text-align: center;
-      margin-bottom: 5px;
-    }
-
-    #userList {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    #userList li {
-      padding: 6px;
-      border-bottom: 1px solid #222;
-    }
-
+    /* على الهاتف */
     @media (max-width: 700px) {
-      main {
+      .chat-container {
         flex-direction: column;
       }
       #users {
+        order: -1;
+        flex: none;
         width: 100%;
-        border-left: none;
-        border-top: 2px solid #333;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      #messages {
+        flex: 1;
       }
     }
   </style>
 </head>
 <body>
 
-  <header>🏁 لعبة السرعة - كيلتا</header>
+  <div class="chat-container">
+    <div id="users"></div>
+    <div id="messages"></div>
+  </div>
 
-  <main>
-    <section id="chat">
-      <div id="messages"></div>
-      <div id="inputArea">
-        <input type="text" id="msgInput" placeholder="اكتب هنا واضغط Enter...">
-        <button id="sendBtn">إرسال</button>
-      </div>
-    </section>
-
-    <aside id="users">
-      <h3>👥 المتصلون</h3>
-      <ul id="userList"></ul>
-    </aside>
-  </main>
+  <div class="input-area">
+    <input type="text" id="messageInput" placeholder="اكتب هنا...">
+    <button id="sendBtn">إرسال</button>
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded, onValue, remove, onDisconnect, set } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+    import { getDatabase, ref, push, onChildAdded, set, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
 
-    // إعداد Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
       authDomain: "kelta-gmae.firebaseapp.com",
@@ -157,83 +116,56 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // 🔸 حفظ الاسم في localStorage
-    let playerName = localStorage.getItem("playerName");
-    if (!playerName) {
-      playerName = prompt("أدخل اسمك:");
-      if (!playerName || playerName.trim() === "") playerName = "مجهول";
-      localStorage.setItem("playerName", playerName);
-    }
+    const username = prompt("اكتب اسمك:");
+    const usersRef = ref(db, "users");
+    const messagesRef = ref(db, "messages");
 
-    // تسجيل المستخدم
-    const userRef = ref(db, "users/" + playerName);
-    set(userRef, true);
-    onDisconnect(userRef).remove();
+    // إضافة المستخدم إلى قائمة المستخدمين
+    const userRef = push(usersRef);
+    set(userRef, username || "مجهول");
 
-    // تحديث قائمة اللاعبين
-    const userList = document.getElementById("userList");
-    onValue(ref(db, "users"), snapshot => {
-      userList.innerHTML = "";
+    // عرض المستخدمين
+    onValue(usersRef, (snapshot) => {
+      const usersDiv = document.getElementById("users");
+      usersDiv.innerHTML = "<h3>👥 اللاعبين</h3>";
       snapshot.forEach(child => {
-        const li = document.createElement("li");
-        li.textContent = child.key;
-        userList.appendChild(li);
+        usersDiv.innerHTML += `<p>${child.val()}</p>`;
       });
     });
 
-    // عناصر واجهة الشات
-    const msgInput = document.getElementById("msgInput");
-    const sendBtn = document.getElementById("sendBtn");
-    const messagesDiv = document.getElementById("messages");
-    const chatRef = ref(db, "chat");
-
-    let botWords = [];
-    let typingStart = null;
-
     // إرسال الرسائل
-    function sendMessage() {
-      const text = msgInput.value.trim();
-      if (text === "") return;
-      push(chatRef, { name: playerName, text });
-      msgInput.value = "";
-    }
-
-    msgInput.addEventListener("keypress", e => {
+    document.getElementById("sendBtn").onclick = sendMessage;
+    document.getElementById("messageInput").addEventListener("keypress", e => {
       if (e.key === "Enter") sendMessage();
     });
-    sendBtn.addEventListener("click", sendMessage);
 
-    // عرض الرسائل
-    onChildAdded(chatRef, snapshot => {
-      const data = snapshot.val();
-      const div = document.createElement("div");
-      div.classList.add("msg");
-      if (data.name === "البوت") div.classList.add("bot");
-      div.textContent = `${data.name}: ${data.text}`;
-      messagesDiv.appendChild(div);
+    function sendMessage() {
+      const input = document.getElementById("messageInput");
+      const text = input.value.trim();
+      if (!text) return;
+      push(messagesRef, { name: username, text });
+      input.value = "";
+    }
+
+    // عرض الرسائل + البوت
+    onChildAdded(messagesRef, (snapshot) => {
+      const msg = snapshot.val();
+      const messagesDiv = document.getElementById("messages");
+      messagesDiv.innerHTML += `<p><strong>${msg.name}:</strong> ${msg.text}</p>`;
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-      // 👾 البوت "طش"
-      if (data.text === "طش" && data.name !== "البوت") {
-        const words = ["سرعة", "كتابة", "كيلتا", "نمر", "تركيز", "ذكاء", "منافسة", "كلمة", "برمجة", "فوز"];
-        botWords = Array.from({ length: 7 }, () => words[Math.floor(Math.random() * words.length)]);
-        push(chatRef, { name: "البوت", text: botWords.join(" ") });
-        typingStart = Date.now();
-      }
-
-      // 🕒 حساب WPM
-      if (botWords.length && data.name !== "البوت") {
-        const joinedUser = data.text.replace(/\s+/g, " ").trim();
-        const joinedBot = botWords.join(" ");
-        if (joinedUser === joinedBot) {
-          const timeTaken = (Date.now() - typingStart) / 1000;
-          const wordsPerMin = (botWords.length / timeTaken) * 60;
-          const wpm = Math.round(wordsPerMin);
-          push(chatRef, { name: "البوت", text: `${data.name} كتب الجملة بسرعة ${wpm} WPM ⚡` });
-          botWords = [];
-        }
+      if (msg.text === "طش") {
+        sendBotMessage();
       }
     });
+
+    // بوت كيلتا
+    function sendBotMessage() {
+      const words = ["كلمة", "سرعة", "ذكاء", "تحدي", "كتابة", "إجابة", "لعبة", "مهارة", "منافسة"];
+      const randomWords = Array.from({ length: 7 }, () => words[Math.floor(Math.random() * words.length)]);
+      push(messagesRef, { name: "🤖 البوت", text: randomWords.join(" ") });
+    }
   </script>
+
 </body>
 </html>
