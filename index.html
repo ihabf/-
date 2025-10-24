@@ -1,113 +1,135 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
-  <meta charset="UTF-8">
-  <title>لعبة السرعة KelTa</title>
-  <style>
-    body { font-family: sans-serif; background: #111; color: #fff; text-align: center; padding: 20px; }
-    #chat-box { border: 1px solid #555; background: #222; height: 300px; overflow-y: auto; padding: 10px; margin-top: 10px; }
-    input, button { padding: 8px; margin: 5px; border-radius: 5px; border: none; font-size: 16px; }
-    input { width: 70%; }
-    button { background: #28a745; color: white; cursor: pointer; }
-    button:hover { background: #1f7a33; }
-    #login { margin-top: 50px; }
-  </style>
+<meta charset="UTF-8">
+<title>غرفة الدردشة الجماعية</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<style>
+  body {
+    display: flex;
+    font-family: "Cairo", sans-serif;
+    direction: rtl;
+    background: #111;
+    color: white;
+    height: 100vh;
+    margin: 0;
+  }
+
+  /* القائمة الجانبية */
+  #usersList {
+    width: 200px;
+    background: rgba(255,255,255,0.1);
+    padding: 10px;
+    overflow-y: auto;
+    border-left: 2px solid #444;
+  }
+  #usersList h3 {
+    text-align: center;
+    margin-top: 0;
+  }
+  #usersList ul {
+    list-style: none;
+    padding: 0;
+  }
+  #usersList li {
+    padding: 6px;
+    border-bottom: 1px solid #333;
+  }
+
+  /* واجهة الشات */
+  #chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 15px;
+  }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    border: 1px solid #333;
+    padding: 10px;
+    background: rgba(255,255,255,0.05);
+  }
+
+  input {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    outline: none;
+    background: #222;
+    color: white;
+  }
+</style>
 </head>
 <body>
-
-  <div id="login">
-    <h2>أدخل اسمك للانضمام 🎮</h2>
-    <input id="nameInput" placeholder="اسم اللاعب" />
-    <button id="joinBtn">انضم</button>
+  <!-- قائمة اللاعبين -->
+  <div id="usersList">
+    <h3>اللاعبون</h3>
+    <ul id="users"></ul>
   </div>
 
-  <div id="game" style="display:none;">
-    <h2>مرحبًا <span id="playerName"></span> 👋</h2>
-    <div id="chat-box"></div>
-    <input id="msgInput" placeholder="اكتب رسالة..." />
+  <!-- واجهة الشات -->
+  <div id="chat">
+    <div id="messages"></div>
+    <input id="messageInput" placeholder="اكتب رسالتك واضغط Enter">
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+<script>
+  // إعدادات Firebase الخاصة بك
+  const firebaseConfig = {
+    databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com/"
+  };
+  firebase.initializeApp(firebaseConfig);
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
-      authDomain: "kelta-gmae.firebaseapp.com",
-      databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
-      projectId: "kelta-gmae",
-      storageBucket: "kelta-gmae.firebasestorage.app",
-      messagingSenderId: "247464874751",
-      appId: "1:247464874751:web:779a3120e6b422fdee72ca",
-      measurementId: "G-6C8HGRKLHS"
-    };
+  const db = firebase.database();
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const chatRef = ref(db, "chat");
+  // --- تسجيل اللاعب ---
+  let playerName = prompt("أدخل اسمك:");
+  if (!playerName) playerName = "مجهول";
 
-    const loginDiv = document.getElementById("login");
-    const gameDiv = document.getElementById("game");
-    const nameInput = document.getElementById("nameInput");
-    const joinBtn = document.getElementById("joinBtn");
-    const msgInput = document.getElementById("msgInput");
-    const chatBox = document.getElementById("chat-box");
-    const playerName = document.getElementById("playerName");
+  const userRef = db.ref("users/" + playerName);
+  userRef.set(true);
+  userRef.onDisconnect().remove(); // يحذف الاسم عند الخروج
 
-    let username = "";
-    let startTime = null;
-    let expectedWords = [];
-
-    joinBtn.onclick = () => {
-      username = nameInput.value.trim();
-      if (!username) return alert("اكتب اسمك أولاً!");
-      playerName.textContent = username;
-      loginDiv.style.display = "none";
-      gameDiv.style.display = "block";
-      msgInput.focus();
-    };
-
-    // عند الضغط على Enter لإرسال الرسالة
-    msgInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        const text = msgInput.value.trim();
-        if (!text) return;
-
-        push(chatRef, { user: username, text, time: Date.now() });
-
-        // إذا كتب المستخدم "طش"
-        if (text === "طش") {
-          expectedWords = generateWords();
-          push(chatRef, { user: "🤖 البوت", text: expectedWords.join(" "), time: Date.now() });
-          startTime = Date.now();
-        }
-
-        // تحقق من كتابة كل الكلمات الصحيحة
-        if (expectedWords.length && text === expectedWords.join(" ")) {
-          const elapsed = (Date.now() - startTime) / 1000;
-          const wpm = Math.round((expectedWords.length / elapsed) * 60);
-          push(chatRef, { user: "🤖 البوت", text: `سرعتك ${wpm} كلمة/دقيقة ⚡`, time: Date.now() });
-          expectedWords = [];
-        }
-
-        msgInput.value = "";
-      }
+  // --- تحديث قائمة اللاعبين ---
+  const usersList = document.getElementById("users");
+  db.ref("users").on("value", (snapshot) => {
+    usersList.innerHTML = "";
+    snapshot.forEach((child) => {
+      const li = document.createElement("li");
+      li.textContent = child.key;
+      usersList.appendChild(li);
     });
+  });
 
-    // دالة توليد 7 كلمات عشوائية
-    function generateWords() {
-      const words = ["تفاحة", "موز", "سيارة", "قلم", "بيت", "شمس", "كرة", "كتاب", "كلب", "وردة", "سيف", "شجرة"];
-      return Array.from({ length: 7 }, () => words[Math.floor(Math.random() * words.length)]);
+  // --- نظام الشات ---
+  const messagesDiv = document.getElementById("messages");
+  const input = document.getElementById("messageInput");
+
+  // عرض الرسائل
+  db.ref("chat").on("child_added", (snapshot) => {
+    const msg = snapshot.val();
+    const div = document.createElement("div");
+    div.textContent = msg.name + ": " + msg.text;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  });
+
+  // إرسال الرسالة عند الضغط على Enter
+  input.addEventListener("keypress", (e) => {
+    if (e.key === "Enter" && input.value.trim() !== "") {
+      db.ref("chat").push({
+        name: playerName,
+        text: input.value.trim()
+      });
+      input.value = "";
     }
-
-    // عرض الرسائل الجديدة فور وصولها
-    onChildAdded(chatRef, (snapshot) => {
-      const msg = snapshot.val();
-      const div = document.createElement("div");
-      div.textContent = `${msg.user}: ${msg.text}`;
-      chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    });
-  </script>
+  });
+</script>
 </body>
 </html>
