@@ -29,6 +29,7 @@
       overflow-y: auto;
       background: #1a1a1a;
       border-left: 1px solid #333;
+      transition: height 0.3s;
     }
 
     /* قائمة الأشخاص */
@@ -67,21 +68,34 @@
       font-size: 16px;
     }
 
-    /* على الهاتف */
+    /* 🎯 تعديل تصميم الهاتف */
     @media (max-width: 700px) {
       .chat-container {
         flex-direction: column;
       }
+
+      #messages {
+        flex: none;
+        height: 55vh; /* تقليل الطول */
+      }
+
       #users {
-        order: -1;
         flex: none;
         width: 100%;
+        order: 3; /* ينزل للأسفل */
+        background: #222;
+        border-top: 1px solid #333;
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
+        font-size: 14px;
+        padding: 6px;
       }
-      #messages {
-        flex: 1;
+
+      .input-area {
+        order: 2;
+        position: relative;
+        bottom: 0;
       }
     }
   </style>
@@ -127,9 +141,9 @@
     // عرض المستخدمين
     onValue(usersRef, (snapshot) => {
       const usersDiv = document.getElementById("users");
-      usersDiv.innerHTML = "<h3>👥 اللاعبين</h3>";
+      usersDiv.innerHTML = "<strong>👥 اللاعبين:</strong> ";
       snapshot.forEach(child => {
-        usersDiv.innerHTML += `<p>${child.val()}</p>`;
+        usersDiv.innerHTML += `<span style='margin:0 6px;'>${child.val()}</span>`;
       });
     });
 
