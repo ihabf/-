@@ -1,135 +1,161 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="UTF-8">
-<title>غرفة الدردشة الجماعية</title>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-<style>
-  body {
-    display: flex;
-    font-family: "Cairo", sans-serif;
-    direction: rtl;
-    background: #111;
-    color: white;
-    height: 100vh;
-    margin: 0;
-  }
-
-  /* القائمة الجانبية */
-  #usersList {
-    width: 200px;
-    background: rgba(255,255,255,0.1);
-    padding: 10px;
-    overflow-y: auto;
-    border-left: 2px solid #444;
-  }
-  #usersList h3 {
-    text-align: center;
-    margin-top: 0;
-  }
-  #usersList ul {
-    list-style: none;
-    padding: 0;
-  }
-  #usersList li {
-    padding: 6px;
-    border-bottom: 1px solid #333;
-  }
-
-  /* واجهة الشات */
-  #chat {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 15px;
-  }
-
-  #messages {
-    flex: 1;
-    overflow-y: auto;
-    margin-bottom: 10px;
-    border: 1px solid #333;
-    padding: 10px;
-    background: rgba(255,255,255,0.05);
-  }
-
-  input {
-    width: 100%;
-    padding: 10px;
-    border: none;
-    border-radius: 5px;
-    outline: none;
-    background: #222;
-    color: white;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>لعبة السرعة - كيلتا</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #111;
+      color: #fff;
+      display: flex;
+      height: 100vh;
+      margin: 0;
+    }
+    #users {
+      width: 200px;
+      background-color: #1a1a1a;
+      padding: 10px;
+      border-left: 2px solid #333;
+      overflow-y: auto;
+    }
+    #chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+    }
+    #messages {
+      flex: 1;
+      background: #222;
+      border: 1px solid #333;
+      padding: 10px;
+      overflow-y: auto;
+      border-radius: 8px;
+    }
+    .msg {
+      margin: 5px 0;
+      padding: 6px 10px;
+      background: #333;
+      border-radius: 6px;
+    }
+    #inputArea {
+      display: flex;
+      margin-top: 10px;
+    }
+    #msgInput {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 6px 0 0 6px;
+      outline: none;
+    }
+    #sendBtn {
+      padding: 10px 20px;
+      background: #28a745;
+      border: none;
+      border-radius: 0 6px 6px 0;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <!-- قائمة اللاعبين -->
-  <div id="usersList">
-    <h3>اللاعبون</h3>
-    <ul id="users"></ul>
-  </div>
 
-  <!-- واجهة الشات -->
   <div id="chat">
+    <h2>💬 غرفة الدردشة</h2>
     <div id="messages"></div>
-    <input id="messageInput" placeholder="اكتب رسالتك واضغط Enter">
+    <div id="inputArea">
+      <input type="text" id="msgInput" placeholder="اكتب رسالتك واضغط Enter...">
+      <button id="sendBtn">إرسال</button>
+    </div>
   </div>
 
-<script>
-  // إعدادات Firebase الخاصة بك
-  const firebaseConfig = {
-    databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com/"
-  };
-  firebase.initializeApp(firebaseConfig);
+  <div id="users">
+    <h3>👥 المتصلون</h3>
+    <ul id="userList"></ul>
+  </div>
 
-  const db = firebase.database();
+  <script type="module">
+    // استيراد مكتبات Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded, onValue, remove, onDisconnect, set } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
 
-  // --- تسجيل اللاعب ---
-  let playerName = prompt("أدخل اسمك:");
-  if (!playerName) playerName = "مجهول";
+    // إعداد Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
+      authDomain: "kelta-gmae.firebaseapp.com",
+      databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
+      projectId: "kelta-gmae",
+      storageBucket: "kelta-gmae.firebasestorage.app",
+      messagingSenderId: "247464874751",
+      appId: "1:247464874751:web:779a3120e6b422fdee72ca",
+      measurementId: "G-6C8HGRKLHS"
+    };
 
-  const userRef = db.ref("users/" + playerName);
-  userRef.set(true);
-  userRef.onDisconnect().remove(); // يحذف الاسم عند الخروج
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-  // --- تحديث قائمة اللاعبين ---
-  const usersList = document.getElementById("users");
-  db.ref("users").on("value", (snapshot) => {
-    usersList.innerHTML = "";
-    snapshot.forEach((child) => {
-      const li = document.createElement("li");
-      li.textContent = child.key;
-      usersList.appendChild(li);
-    });
-  });
-
-  // --- نظام الشات ---
-  const messagesDiv = document.getElementById("messages");
-  const input = document.getElementById("messageInput");
-
-  // عرض الرسائل
-  db.ref("chat").on("child_added", (snapshot) => {
-    const msg = snapshot.val();
-    const div = document.createElement("div");
-    div.textContent = msg.name + ": " + msg.text;
-    messagesDiv.appendChild(div);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  });
-
-  // إرسال الرسالة عند الضغط على Enter
-  input.addEventListener("keypress", (e) => {
-    if (e.key === "Enter" && input.value.trim() !== "") {
-      db.ref("chat").push({
-        name: playerName,
-        text: input.value.trim()
-      });
-      input.value = "";
+    // حفظ الاسم في localStorage
+    let playerName = localStorage.getItem("playerName");
+    if (!playerName) {
+      playerName = prompt("أدخل اسمك:");
+      if (!playerName || playerName.trim() === "") playerName = "مجهول";
+      localStorage.setItem("playerName", playerName);
     }
-  });
-</script>
+
+    // عند الاتصال بالقاعدة
+    const userRef = ref(db, "users/" + playerName);
+    set(userRef, true);
+    onDisconnect(userRef).remove();
+
+    // تحديث قائمة المستخدمين
+    const userList = document.getElementById("userList");
+    const usersRef = ref(db, "users");
+    onValue(usersRef, snapshot => {
+      userList.innerHTML = "";
+      snapshot.forEach(child => {
+        const li = document.createElement("li");
+        li.textContent = child.key;
+        userList.appendChild(li);
+      });
+    });
+
+    // نظام الرسائل
+    const messagesRef = ref(db, "chat");
+    const messagesDiv = document.getElementById("messages");
+    const msgInput = document.getElementById("msgInput");
+    const sendBtn = document.getElementById("sendBtn");
+
+    function sendMessage() {
+      const text = msgInput.value.trim();
+      if (text === "") return;
+      push(messagesRef, { name: playerName, text: text });
+      msgInput.value = "";
+    }
+
+    // إرسال بزر Enter
+    msgInput.addEventListener("keypress", e => {
+      if (e.key === "Enter") sendMessage();
+    });
+    sendBtn.addEventListener("click", sendMessage);
+
+    // عرض الرسائل
+    onChildAdded(messagesRef, snapshot => {
+      const data = snapshot.val();
+      const div = document.createElement("div");
+      div.classList.add("msg");
+      div.textContent = `${data.name}: ${data.text}`;
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      // 👾 البوت "طش"
+      if (data.text === "طش" && data.name !== "البوت") {
+        const words = ["نمر", "سرعة", "كتابة", "كلمة", "فوز", "تركيز", "كيلتا", "لعبة", "ذكاء", "برمجة"];
+        const randomWords = Array.from({ length: 7 }, () => words[Math.floor(Math.random() * words.length)]);
+        push(messagesRef, { name: "البوت", text: randomWords.join(" ") });
+      }
+    });
+  </script>
 </body>
 </html>
