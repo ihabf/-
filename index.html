@@ -246,10 +246,7 @@ body.light #chat { background:#f7f7f7; }
   background:radial-gradient(at 47.966% 59.17%, hsla(195, 8.16%, 19.21%, 1) 0%, hsla(195, 8.16%, 19.21%, 0) 100%);
   box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
 }
-body.light .message {
-  background: linear-gradient(90deg, #f4f0f4,#45484a);
-  color:#222;
-}
+body.light .message { background: linear-gradient(90deg, #f4f0f4,#45484a); color:#222; }
 .message.mine { margin-left:auto; color:#fff; }
 body.light .message.mine { color:#fff; }
 .message.other { margin-right:auto; color:#fff; }
@@ -301,7 +298,7 @@ body.light #users li:hover{background:#dcdcdc;}
 <body>
 <h2>💬 دردشة مؤقتة</h2>
 <button id="toggleMode">تبديل الوضع</button>
-<input type="file" id="avatarInput" accept="image/*" style="margin:10px;"/>
+<input type="file" id="avatarInput" accept="image/*" style="width:35px;height:35px;margin:10px;border-radius:50%;"/>
 <div id="chat"></div>
 <div id="typing"></div>
 <form id="chatForm">
