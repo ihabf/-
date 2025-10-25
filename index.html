@@ -29,64 +29,60 @@ const messagesRef = ref(db, "messages");
 const typingRef = ref(db, "typing");
 const savedUsersRef = ref(db, "savedUsers");
 
-const ADMIN_NAME = "KeltA"; // اسم المدير
+const ADMIN_NAME = "KeltA";
 
-// 🔹 اختيار الاسم مع منع التكرار
+// 🔹 إنشاء معرف فريد للجهاز
+let deviceId = localStorage.getItem("chat_device_id");
+if (!deviceId) {
+  deviceId = "dev_" + Math.floor(Math.random() * 1e9);
+  localStorage.setItem("chat_device_id", deviceId);
+}
+
+// 🔹 اختيار اسم المستخدم
 async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
+  const savedSnap = await get(savedUsersRef);
+  const savedData = savedSnap.val() || {};
+
+  if (username && savedData[username]?.deviceId === deviceId) return username;
+
   let valid = false;
   while (!valid) {
-    if (!username) username = prompt("اكتب اسمك:")?.trim() || "مجهول";
+    username = prompt("اكتب اسمك:")?.trim();
+    if (!username) { alert("⚠️ يجب إدخال اسم صالح!"); continue; }
 
     const usersSnap = await get(usersRef);
     const usersData = usersSnap.val() || {};
     const nameTaken = Object.values(usersData).some(u => u.name === username);
+    const nameSavedElsewhere = savedData[username] && savedData[username].deviceId !== deviceId;
 
-    if (nameTaken) {
-      alert("❌ هذا الاسم مستخدم بالفعل! اختر اسمًا آخر.");
-      username = null;
-    } else valid = true;
+    if (nameTaken || nameSavedElsewhere) { alert("❌ هذا الاسم مستخدم!"); continue; }
+    valid = true;
   }
+
   localStorage.setItem("chat_username", username);
   return username;
 }
 
 const username = await chooseUsername();
 
-// 🔹 اختيار اللون
+// 🔹 اختيار اللون وحفظه
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 let userColor = colors[Math.floor(Math.random() * colors.length)];
+await set(ref(db, "savedUsers/" + username), { color: userColor, deviceId });
 
-// استرجاع اللون إذا محفوظ
-const savedSnap = await get(savedUsersRef);
-const savedData = savedSnap.val() || {};
-if (savedData[username]) userColor = savedData[username].color;
-else await set(ref(db, "savedUsers/" + username), { color: userColor });
-
-// 🔹 تسجيل المستخدم
+// 🔹 إنشاء المستخدم في قاعدة البيانات
 const userId = "user_" + Math.floor(Math.random() * 100000);
 const userRef = ref(db, "users/" + userId);
 await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now() });
 onDisconnect(userRef).remove();
-
-// تحديث الحالة كل 5 ثوانٍ
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-// 🔹 تنظيف الغرفة إذا فارغة
-async function cleanupIfEmpty() {
-  const snapshot = await get(usersRef);
-  const users = snapshot.val() || {};
-  const now = Date.now();
-  const activeUsers = Object.values(users).filter(u => now - (u.lastSeen||0) < 10000);
-  if (activeUsers.length === 0) {
-    const messagesSnap = await get(messagesRef);
-    if (messagesSnap.exists()) messagesSnap.forEach(c => remove(ref(db, "messages/" + c.key)));
-    await Promise.all([remove(usersRef), remove(typingRef)]);
-  }
-}
-setInterval(cleanupIfEmpty, 10000);
+// 🔹 الشات يكون فارغ عند الدخول
+const chatBox = document.getElementById("chat");
+chatBox.innerHTML = "";
 
-// 🔹 عرض المستخدمين
+// 🔹 عرض المستخدمين المتصلين
 onValue(usersRef, snapshot => {
   const users = snapshot.val() || {};
   const userList = document.getElementById("users");
@@ -99,23 +95,31 @@ onValue(usersRef, snapshot => {
   });
 });
 
-// 🔹 إرسال الرسائل
+// 🔹 التعامل مع إرسال الرسائل
 const form = document.getElementById("chatForm");
 const msgInput = document.getElementById("msg");
-const chatBox = document.getElementById("chat");
 const typingBox = document.getElementById("typing");
 
-form.addEventListener("submit", e => {
+form.addEventListener("submit", async e => {
   e.preventDefault();
   const text = msgInput.value.trim();
   if (!text) return;
+
+  if (text.startsWith("/delete") && username === ADMIN_NAME) {
+    await remove(messagesRef);
+    chatBox.innerHTML = "";
+    msgInput.value = "";
+    alert("✅ تم حذف جميع الرسائل بواسطة المدير!");
+    return;
+  }
+
   const msgRef = push(messagesRef);
-  set(msgRef, { user: username, color: userColor, text, time: new Date().toLocaleTimeString() });
+  await set(msgRef, { user: username, color: userColor, text, time: new Date().toLocaleTimeString() });
   msgInput.value = "";
   remove(ref(db, "typing/" + userId));
 });
 
-// عرض الرسائل الجديدة
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 onChildAdded(messagesRef, snapshot => {
   const m = snapshot.val();
   const div = document.createElement("div");
@@ -125,7 +129,7 @@ onChildAdded(messagesRef, snapshot => {
   chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// "يكتب الآن"
+// 🔹 الكتابة الحية
 msgInput.addEventListener("input", () => {
   set(ref(db, "typing/" + userId), { name: username });
   clearTimeout(window.typingTimeout);
@@ -137,24 +141,6 @@ onValue(typingRef, snapshot => {
   const names = Object.values(typingUsers).map(u => u.name).filter(n => n !== username);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
-
-// 🔹 زر حذف الرسائل للمدير
-if (username === ADMIN_NAME) {
-  const delBtn = document.createElement("button");
-  delBtn.textContent = "🧹 حذف كل الرسائل";
-  delBtn.style.background = "#ff595e";
-  delBtn.style.color = "#fff";
-  delBtn.style.fontWeight = "bold";
-  delBtn.style.margin = "10px";
-  delBtn.onclick = async () => {
-    if (confirm("هل تريد حذف جميع الرسائل؟")) {
-      await remove(messagesRef);
-      chatBox.innerHTML = "";
-      alert("✅ تم حذف جميع الرسائل!");
-    }
-  };
-  document.body.insertBefore(delBtn, document.getElementById("chat"));
-}
 </script>
 
 <style>
@@ -182,4 +168,3 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 <ul id="users"></ul>
 </body>
 </html>
-
