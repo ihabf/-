@@ -86,21 +86,18 @@ onDisconnect(userRef).remove();
 
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-async function cleanupIfEmpty() {
-  const snapshot = await get(usersRef);
+// 🔹 حذف الشات فورًا عند خروج آخر مستخدم
+onValue(usersRef, async snapshot => {
   const users = snapshot.val() || {};
-  const now = Date.now();
-  const activeUsers = Object.values(users).filter(u => now - (u.lastSeen||0) < 15000);
-
-  if (activeUsers.length === 0) {
+  if (Object.keys(users).length === 0) {
     const messagesSnap = await get(messagesRef);
     if (messagesSnap.exists()) messagesSnap.forEach(c => remove(ref(db, "messages/" + c.key)));
-    await Promise.all([remove(usersRef), remove(typingRef)]);
-    console.log("🧹 تم حذف جميع الرسائل لعدم وجود مستخدمين");
+    await remove(typingRef);
+    console.log("🧹 تم حذف جميع الرسائل لأن لا مستخدمين نشطين");
   }
-}
-setInterval(cleanupIfEmpty, 5000);
+});
 
+// 🔹 عرض المستخدمين
 onValue(usersRef, snapshot => {
   const users = snapshot.val() || {};
   const userList = document.getElementById("users");
