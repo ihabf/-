@@ -35,7 +35,7 @@ const ADMIN_NAME = "KeltA";
 let deviceId = localStorage.getItem("chat_device_id") || "dev_" + Math.floor(Math.random()*1e9);
 localStorage.setItem("chat_device_id", deviceId);
 
-// 🔹 اختيار اسم المستخدم مع نافذة تنبيه إذا كان الاسم غير صالح
+// 🔹 اختيار اسم المستخدم
 async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
   const savedData = (await get(savedUsersRef)).val() || {};
@@ -79,13 +79,15 @@ const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 
-// 🔹 صوت الانضمام البسيط
-const joinSound = new Audio("https://freesound.org/data/previews/250/250629_4486188-lq.mp3");
-joinSound.volume = 0.3; // خفّف الصوت ليكون بسيطاً
+// 🔹 أصوات بسيطة للأحداث
+const joinSound = new Audio("https://freesound.org/data/previews/250/250629_4486188-lq.mp3"); // دخول
+const leaveSound = new Audio("https://freesound.org/data/previews/171/171497_2437358-lq.mp3"); // خروج
+joinSound.volume = 0.2;
+leaveSound.volume = 0.2;
 let audioEnabled = false;
 document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
-// 🔹 عرض المستخدمين مع حالة الكتابة
+// 🔹 عرض المستخدمين (لا يتغير، فقط قائمة الأسماء الجانبية)
 function renderUsers(users, typingUsers){
   userList.innerHTML = "";
   Object.entries(users).forEach(([id,u])=>{
@@ -116,7 +118,7 @@ onChildAdded(usersRef, snapshot=>{
     div.className="message";
     div.style.fontStyle="italic";
     div.style.color="#55ff55";
-    div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
+    div.innerHTML = `✅ <strong>${u.name}</strong> انضم إلى الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
     if(audioEnabled) joinSound.play();
@@ -128,9 +130,10 @@ onChildRemoved(usersRef, snapshot=>{
   div.className="message";
   div.style.fontStyle="italic";
   div.style.color="#ff5555";
-  div.textContent = `❌ ${u.name} غادر الغرفة`;
+  div.innerHTML = `❌ <strong>${u.name}</strong> غادر الغرفة`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
+  if(audioEnabled) leaveSound.play();
 });
 
 // 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
@@ -140,7 +143,7 @@ onChildAdded(messagesRef, snapshot=>{
   const m = snapshot.val();
   const div=document.createElement("div");
   div.className="message";
-  div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  div.innerHTML=`<strong style="color:${m.color}">${m.user}${currentTyping[userId]?" <span class='dots'>…</span>":""}:</strong> ${m.text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
@@ -171,7 +174,7 @@ form.addEventListener("submit", async e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-// 🔹 الكتابة الحية مع نقاط متحركة
+// 🔹 الكتابة الحية مع نقاط متحركة داخل الشات
 let typingTimeout;
 msgInput.addEventListener("input", ()=>{
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
@@ -190,6 +193,20 @@ onValue(typingRef,snapshot=>{
   });
   renderUsers(currentUsers, currentTyping);
 
+  // عرض الكتابة الحية في الشات بجانب اسم المستخدم
+  const messages = chatBox.querySelectorAll(".message");
+  messages.forEach(msg=>{
+    const usernameInMsg = msg.querySelector("strong");
+    if(!usernameInMsg) return;
+    const userNameText = usernameInMsg.textContent.replace("…","");
+    const isTyping = Object.values(currentUsers).some(u=>currentTyping[userId] && u.name===userNameText);
+    if(isTyping){
+      usernameInMsg.innerHTML = `${userNameText} <span class='dots'>…</span>`;
+    } else {
+      usernameInMsg.innerHTML = userNameText;
+    }
+  });
+
   const names = Object.entries(typingUsers)
     .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
     .map(([id,u])=>u.name);
@@ -201,7 +218,7 @@ onValue(typingRef,snapshot=>{
 body { font-family: "Cairo", sans-serif; background:#0e0e0e; color:#eee; margin:0; padding:0; text-align:center; display:flex; flex-direction:column; align-items:center; height:100vh; }
 h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
 #chat { flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box;}
-.message{margin-bottom:6px;line-height:1.4;word-wrap:break-word;}
+.message{margin-bottom:6px;line-height:1.4;word-wrap:break-word;display:flex;align-items:center;gap:5px;}
 form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
 input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
