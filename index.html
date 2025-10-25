@@ -6,7 +6,192 @@
 <title>💬 دردشة مؤقتة</title>
 
 <script type="module">
-// السكريبت كما هو تمامًا من نسختك السابقة
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+// 🔹 إعداد Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
+  authDomain: "kelta-gmae.firebaseapp.com",
+  databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
+  projectId: "kelta-gmae",
+  storageBucket: "kelta-gmae.firebasestorage.app",
+  messagingSenderId: "247464874751",
+  appId: "1:247464874751:web:779a3120e6b422fdee72ca",
+  measurementId: "G-6C8HGRKLHS"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const usersRef = ref(db, "users");
+const messagesRef = ref(db, "messages");
+const typingRef = ref(db, "typing");
+const savedUsersRef = ref(db, "savedUsers");
+
+const ADMIN_NAME = "KeltA";
+
+// 🔹 إنشاء معرف فريد للجهاز
+let deviceId = localStorage.getItem("chat_device_id") || "dev_" + Math.floor(Math.random()*1e9);
+localStorage.setItem("chat_device_id", deviceId);
+
+// 🔹 اختيار اسم المستخدم
+async function chooseUsername() {
+  let username = localStorage.getItem("chat_username");
+  const savedData = (await get(savedUsersRef)).val() || {};
+  if(username && savedData[username]?.deviceId===deviceId) return username;
+
+  let valid=false;
+  while(!valid){
+    username = prompt("اكتب اسمك:")?.trim();
+    if(!username) continue;
+    const usersData = (await get(usersRef)).val() || {};
+    const nameTaken = Object.values(usersData).some(u=>u.name===username);
+    const nameSavedElsewhere = savedData[username] && savedData[username].deviceId!==deviceId;
+    if(nameTaken || nameSavedElsewhere) continue;
+    valid=true;
+  }
+  localStorage.setItem("chat_username", username);
+  return username;
+}
+
+const username = await chooseUsername();
+
+// 🔹 اختيار اللون وحفظه
+const colors = ["#ff6b6b","#feca57","#ff9ff3","#48dbfb","#1dd1a1","#5f27cd","#ee5253","#0abde3"];
+let userColor = colors[Math.floor(Math.random()*colors.length)];
+// إذا كان المستخدم مسؤول، يصبح لونه بنفسجي
+if(username === ADMIN_NAME) userColor = "#8e44ad";
+await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
+
+// 🔹 إنشاء المستخدم
+const userId = "user_"+Math.floor(Math.random()*100000);
+const userRef = ref(db, "users/"+userId);
+await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now()});
+onDisconnect(userRef).remove();
+setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
+
+// عناصر الصفحة
+const chatBox=document.getElementById("chat");
+const form=document.getElementById("chatForm");
+const msgInput=document.getElementById("msg");
+const typingBox=document.getElementById("typing");
+const userList=document.getElementById("users");
+const toggleBtn = document.getElementById("toggleMode");
+
+// 🔹 أصوات قصيرة وسريعة
+const soundJoin = new Audio("https://www.soundjay.com/button/sounds/button-3.mp3");
+const soundLeave = new Audio("https://www.soundjay.com/button/sounds/button-10.mp3");
+const soundTyping = new Audio("https://www.soundjay.com/button/sounds/button-16.mp3");
+let audioEnabled = false;
+document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
+
+// 🔹 عرض المستخدمين مع حالة الكتابة
+function renderUsers(users, typingUsers){
+  userList.innerHTML = "";
+  Object.entries(users).forEach(([id,u])=>{
+    const li = document.createElement("li");
+    li.textContent = u.name;
+    // لون المستخدم مسؤول بنفسجي، والبقية أبيض
+    li.style.borderRight = `6px solid ${u.name===ADMIN_NAME ? "#8e44ad" : "#fff"}`;
+    if(typingUsers[id]) li.innerHTML += ` <span class="dots">…</span>`;
+    userList.appendChild(li);
+  });
+}
+
+// باقي السكريبت كما هو بالكامل
+let currentUsers = {};
+let currentTyping = {};
+onValue(usersRef, snapshot=>{
+  currentUsers = snapshot.val() || {};
+  renderUsers(currentUsers, currentTyping);
+});
+
+onChildAdded(usersRef, snapshot=>{
+  const u = snapshot.val();
+  if(u.name !== username){
+    const div = document.createElement("div");
+    div.className="message system";
+    div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    if(audioEnabled) soundJoin.play();
+  }
+});
+onChildRemoved(usersRef, snapshot=>{
+  const u = snapshot.val();
+  const div = document.createElement("div");
+  div.className="message system leave";
+  div.textContent = `❌ ${u.name} غادر الغرفة`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+  if(audioEnabled) soundLeave.play();
+});
+
+let firstLoad = true;
+onChildAdded(messagesRef, snapshot=>{
+  if(firstLoad) return;
+  const m = snapshot.val();
+  const div=document.createElement("div");
+  div.className="message "+(m.user===username?"mine":"other");
+  div.innerHTML=`<strong style="color:${m.user===ADMIN_NAME ? "#8e44ad" : "#fff"}">${m.user}:</strong> ${m.text}`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+get(messagesRef).then(()=>{ firstLoad=false; });
+
+onValue(messagesRef, snapshot=>{
+  if(!snapshot.exists()) chatBox.innerHTML = "";
+});
+
+form.addEventListener("submit", e=>{
+  e.preventDefault();
+  const text = msgInput.value.trim();
+  if(!text) return;
+
+  if(text.startsWith("/delete") && username === ADMIN_NAME){
+    remove(messagesRef);
+    msgInput.value="";
+    return;
+  }
+
+  push(messagesRef, {
+    user: username,
+    color:userColor,
+    text,
+    time: new Date().toLocaleTimeString()
+  });
+
+  msgInput.value="";
+  msgInput.focus();
+  remove(ref(db,"typing/"+userId));
+});
+
+msgInput.addEventListener("input", ()=>{
+  set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
+  if(audioEnabled) soundTyping.play();
+});
+
+onValue(typingRef, snapshot=>{
+  const typingUsers = snapshot.val() || {};
+  currentTyping = {};
+  const now = Date.now();
+  Object.entries(typingUsers).forEach(([id,u])=>{
+    if(u.name !== username && now - (u.ts||0) < 2000) currentTyping[id] = true;
+  });
+  renderUsers(currentUsers, currentTyping);
+
+  const names = Object.entries(typingUsers)
+    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2000)
+    .map(([id,u])=>u.name);
+  typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
+});
+
+toggleBtn.addEventListener("click", ()=>{
+  document.body.classList.toggle("light");
+  localStorage.setItem("theme",document.body.classList.contains("light")?"light":"dark");
+});
+if(localStorage.getItem("theme")==="light") document.body.classList.add("light");
 </script>
 
 <style>
