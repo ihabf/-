@@ -80,7 +80,7 @@ setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000)
 
 // 🔹 عناصر الصفحة
 const chatBox = document.getElementById("chat");
-chatBox.innerHTML = ""; // فارغ عند الدخول
+chatBox.innerHTML = "";
 
 // 🔹 عرض المستخدمين المتصلين
 onValue(usersRef, snapshot => {
