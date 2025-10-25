@@ -156,7 +156,6 @@ form.addEventListener("submit", e=>{
     return;
   }
 
-  // إرسال الرسالة مباشرة بدون انتظار
   push(messagesRef, {
     user: username,
     color: userColor,
@@ -165,10 +164,9 @@ form.addEventListener("submit", e=>{
   });
 
   msgInput.value="";
-  msgInput.focus(); // للحفاظ على التركيز بعد الإرسال
+  msgInput.focus();
   remove(ref(db,"typing/"+userId));
 });
-
 
 // 🔹 الكتابة الحية مع تحسين التتبع
 msgInput.addEventListener("input", ()=>{
@@ -185,7 +183,6 @@ onValue(typingRef, snapshot=>{
   });
   renderUsers(currentUsers, currentTyping);
 
-  // عرض الكتابة أسفل الدردشة
   const names = Object.entries(typingUsers)
     .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2000)
     .map(([id,u])=>u.name);
@@ -203,30 +200,32 @@ if(localStorage.getItem("theme")==="light") document.body.classList.add("light")
 
 <style>
 body {
-  font-family:"Cairo",sans-serif; background:#121212; color:#e0e0e0;
+  font-family:"Cairo",sans-serif;
+  background:#181818; /* خلفية داكنة محسّنة */
+  color:#ddd;
   margin:0; padding:0; display:flex; flex-direction:column;
   align-items:center; height:100vh; transition:0.3s;
 }
-body.light { background:#f9f9f9; color:#111; }
+body.light { background:#fafafa; color:#222; }
 
-h2 { color:#0abde3;margin:15px 0;font-size:1.4em; text-shadow:0 0 5px #0abde3; }
+h2 { color:#48dbfb; margin:15px 0;font-size:1.4em; text-shadow:0 0 5px #48dbfb; }
 #chat {
   flex:1;width:95%;max-width:650px;overflow-y:auto;
-  border-radius:12px;padding:12px;background:#1f1f1f;
+  border-radius:12px;padding:12px;background:#242424;
   box-shadow:0 0 15px rgba(0,0,0,0.3); transition:0.3s;
 }
-body.light #chat { background:#fff; }
+body.light #chat { background:#f7f7f7; }
 
 .message{
   margin-bottom:10px;line-height:1.5;word-wrap:break-word;
   padding:10px 14px;border-radius:18px;max-width:80%;
-  background:#2b2b2b; box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
+  background:#2f2f2f; box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
 }
-body.light .message { background:#e8e8e8; color:#111; }
-.message.mine { margin-left:auto; background:#0abde3; color:#fff; }
-body.light .message.mine { background:#4da6ff; color:#fff; }
-.message.other { margin-right:auto; background:#2b2b2b; color:#e0e0e0; }
-body.light .message.other { background:#d1d1d1; color:#111; }
+body.light .message { background:#eaeaea; color:#222; }
+.message.mine { margin-left:auto; background:#1dd1a1; color:#fff; }
+body.light .message.mine { background:#48dbfb; color:#fff; }
+.message.other { margin-right:auto; background:#2f2f2f; color:#ddd; }
+body.light .message.other { background:#e5e5e5; color:#222; }
 
 .message.system {color:#a3ffad;font-style:italic;font-size:0.95em;text-align:center;background:transparent;box-shadow:none;}
 .message.system.leave {color:#ff7b7b;}
@@ -242,13 +241,13 @@ body.light input { background:#f0f0f0;color:#111; }
 
 button{
   padding:12px 18px;border:none;border-radius:20px;
-  background:#0abde3;color:#fff;font-weight:bold;cursor:pointer;transition:0.2s;
+  background:#48dbfb;color:#fff;font-weight:bold;cursor:pointer;transition:0.2s;
 }
-button:hover{background:#0dcaf0;}
+button:hover{background:#1dd1a1;}
 
 #toggleMode{
   position:fixed; top:10px; left:10px; padding:10px 15px;
-  background:#0abde3; color:#fff; border:none; border-radius:8px; cursor:pointer;
+  background:#48dbfb; color:#fff; border:none; border-radius:8px; cursor:pointer;
 }
 
 #typing{font-size:14px;color:#ffd166;margin:6px;min-height:20px; transition:0.3s;}
@@ -257,12 +256,12 @@ body.light #typing { color:#555; }
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
 #users li{
   background:#2c2c2c;margin:6px 0;padding:10px;border-radius:15px;
-  text-align:right;font-weight:600;border-right:6px solid #666;
+  text-align:right;font-weight:600;border-right:6px solid #1dd1a1;
   display:flex;justify-content:space-between;align-items:center;transition:0.2s;
 }
-body.light #users li { background:#e0e0e0;color:#111;border-right:6px solid #888; }
+body.light #users li { background:#ededed;color:#222;border-right:6px solid #48dbfb; }
 #users li:hover{background:#3a3a3a;}
-body.light #users li:hover{background:#ccc;}
+body.light #users li:hover{background:#dcdcdc;}
 
 .dots{display:inline-block;animation:blink 1s infinite;font-weight:bold;color:#3ba55c;}
 @keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
@@ -282,4 +281,3 @@ body.light #users li:hover{background:#ccc;}
 <ul id="users"></ul>
 </body>
 </html>
-
