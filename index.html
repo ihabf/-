@@ -1,10 +1,10 @@
+<!-- صفحة الدردشة: chat.html -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>💬 دردشة مؤقتة</title>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
@@ -29,29 +29,10 @@ const messagesRef = ref(db, "messages");
 const typingRef = ref(db, "typing");
 const savedUsersRef = ref(db, "savedUsers");
 
-const ADMIN_NAME = "KeltA"; // اسم المدير
+const ADMIN_NAME = "KeltA";
 
-// 🔹 اختيار الاسم مع منع التكرار
-async function chooseUsername() {
-  let username = localStorage.getItem("chat_username");
-  let valid = false;
-  while (!valid) {
-    if (!username) username = prompt("اكتب اسمك:")?.trim() || "مجهول";
-
-    const usersSnap = await get(usersRef);
-    const usersData = usersSnap.val() || {};
-    const nameTaken = Object.values(usersData).some(u => u.name === username);
-
-    if (nameTaken) {
-      alert("❌ هذا الاسم مستخدم بالفعل! اختر اسمًا آخر.");
-      username = null;
-    } else valid = true;
-  }
-  localStorage.setItem("chat_username", username);
-  return username;
-}
-
-const username = await chooseUsername();
+// 🔹 استرجاع الاسم من localStorage
+let username = localStorage.getItem("chat_username") || "مجهول";
 
 // 🔹 اختيار اللون
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
@@ -68,8 +49,6 @@ const userId = "user_" + Math.floor(Math.random() * 100000);
 const userRef = ref(db, "users/" + userId);
 await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now() });
 onDisconnect(userRef).remove();
-
-// تحديث الحالة كل 5 ثوانٍ
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
 // 🔹 تنظيف الغرفة إذا فارغة
