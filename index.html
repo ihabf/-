@@ -75,7 +75,7 @@ function renderUsers(users, typingUsers){
     const li = document.createElement("li");
     let typingAnim = "";
     if(typingUsers[id]){
-      typingAnim = " ⌨️"; // علامة الكتابة بجانب الاسم
+      typingAnim = " ⌨️";
     }
     li.innerHTML = `${u.name}${typingAnim}`;
     li.style.borderRight = `6px solid ${u.color}`;
@@ -156,13 +156,12 @@ msgInput.addEventListener("input", ()=>{
   typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),2500);
 });
 
-// ✅ الطريقة الجديدة لمراقبة الكتابة مباشرة من جذر typing
+// ✅ المراقبة الأصلية للكتابة (لم المسها)
 onValue(typingRef, snapshot=>{
   const typingUsers = snapshot.val() || {};
   currentTyping = {};
   const now = Date.now();
 
-  // تحديد المستخدمين الذين يكتبون حاليا
   Object.entries(typingUsers).forEach(([id,u])=>{
     if(u.name !== username && now - (u.ts||0) < 2500){
       currentTyping[id] = true;
@@ -171,7 +170,6 @@ onValue(typingRef, snapshot=>{
 
   renderUsers(currentUsers, currentTyping);
 
-  // عرض رسالة الكتابة في الشات
   document.querySelectorAll(".typing-message").forEach(el=>el.remove());
   const names = Object.entries(typingUsers)
     .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
