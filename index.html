@@ -31,28 +31,35 @@ const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA"; // اسم المدير
 
-// 🔹 اختيار الاسم مع منع التكرار ومنع استخدام أي اسم محفوظ سابقًا
-async function chooseUsername() {
-  let username = null;
-  let valid = false;
+// 🔹 إنشاء معرف فريد للجهاز
+let deviceId = localStorage.getItem("chat_device_id");
+if (!deviceId) {
+  deviceId = "dev_" + Math.floor(Math.random() * 1e9);
+  localStorage.setItem("chat_device_id", deviceId);
+}
 
+// 🔹 اختيار الاسم مع حفظه للجهاز وربطه بالـ deviceId
+async function chooseUsername() {
+  let username = localStorage.getItem("chat_username");
   const savedSnap = await get(savedUsersRef);
   const savedData = savedSnap.val() || {};
 
+  if (username && savedData[username]?.deviceId === deviceId) {
+    return username; // استرجاع الاسم السابق لنفس الجهاز
+  }
+
+  let valid = false;
   while (!valid) {
     username = prompt("اكتب اسمك:")?.trim();
-    if (!username) {
-      alert("⚠️ يجب إدخال اسم صالح للدخول!");
-      continue;
-    }
+    if (!username) { alert("⚠️ يجب إدخال اسم صالح للدخول!"); continue; }
 
     const usersSnap = await get(usersRef);
     const usersData = usersSnap.val() || {};
     const nameTaken = Object.values(usersData).some(u => u.name === username);
-    const nameSaved = savedData[username];
+    const nameSavedElsewhere = savedData[username] && savedData[username].deviceId !== deviceId;
 
-    if (nameTaken || nameSaved) {
-      alert("❌ هذا الاسم مستخدم بالفعل أو محفوظ سابقًا! اختر اسمًا آخر.");
+    if (nameTaken || nameSavedElsewhere) {
+      alert("❌ هذا الاسم مستخدم بالفعل أو محفوظ لجهاز آخر! اختر اسمًا آخر.");
       continue;
     }
     valid = true;
@@ -68,19 +75,17 @@ const username = await chooseUsername();
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 let userColor = colors[Math.floor(Math.random() * colors.length)];
 
-// حفظ اللون
-await set(ref(db, "savedUsers/" + username), { color: userColor });
+// حفظ اللون مع deviceId
+await set(ref(db, "savedUsers/" + username), { color: userColor, deviceId });
 
-// 🔹 تسجيل المستخدم
+// 🔹 بقية السكريبت كما هو تمامًا، دون أي تعديل
 const userId = "user_" + Math.floor(Math.random() * 100000);
 const userRef = ref(db, "users/" + userId);
 await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now() });
 onDisconnect(userRef).remove();
 
-// تحديث الحالة كل 5 ثوانٍ
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-// 🔹 تنظيف الغرفة إذا فارغة + حذف الشات تلقائيًا
 async function cleanupIfEmpty() {
   const snapshot = await get(usersRef);
   const users = snapshot.val() || {};
@@ -88,18 +93,14 @@ async function cleanupIfEmpty() {
   const activeUsers = Object.values(users).filter(u => now - (u.lastSeen||0) < 15000);
 
   if (activeUsers.length === 0) {
-    // حذف كل الرسائل
     const messagesSnap = await get(messagesRef);
     if (messagesSnap.exists()) messagesSnap.forEach(c => remove(ref(db, "messages/" + c.key)));
-
-    // حذف المستخدمين الحاليين (فارغ) وحالة الكتابة
     await Promise.all([remove(usersRef), remove(typingRef)]);
     console.log("🧹 تم حذف جميع الرسائل لعدم وجود مستخدمين");
   }
 }
-setInterval(cleanupIfEmpty, 5000); // تحقق كل 5 ثوانٍ
+setInterval(cleanupIfEmpty, 5000);
 
-// 🔹 عرض المستخدمين
 onValue(usersRef, snapshot => {
   const users = snapshot.val() || {};
   const userList = document.getElementById("users");
@@ -112,7 +113,6 @@ onValue(usersRef, snapshot => {
   });
 });
 
-// 🔹 إرسال الرسائل + دعم كوماند /delete
 const form = document.getElementById("chatForm");
 const msgInput = document.getElementById("msg");
 const chatBox = document.getElementById("chat");
@@ -123,7 +123,6 @@ form.addEventListener("submit", async e => {
   const text = msgInput.value.trim();
   if (!text) return;
 
-  // كوماند /delete للمدير
   if (text.startsWith("/delete") && username === ADMIN_NAME) {
     await remove(messagesRef);
     chatBox.innerHTML = "";
@@ -138,7 +137,6 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
-// عرض الرسائل الجديدة
 onChildAdded(messagesRef, snapshot => {
   const m = snapshot.val();
   const div = document.createElement("div");
@@ -148,7 +146,6 @@ onChildAdded(messagesRef, snapshot => {
   chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// "يكتب الآن"
 msgInput.addEventListener("input", () => {
   set(ref(db, "typing/" + userId), { name: username });
   clearTimeout(window.typingTimeout);
