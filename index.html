@@ -74,43 +74,34 @@ const chatBox=document.getElementById("chat");
 const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
+const userList=document.getElementById("users");
 
 // 🔹 صوت الانضمام
 const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3");
 let audioEnabled = false;
 document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
-// 🔹 عرض المستخدمين
-onValue(usersRef, snapshot=>{
-  const users = snapshot.val() || {};
-  const userList=document.getElementById("users");
-  userList.innerHTML="";
-  Object.values(users).forEach(u=>{
-    const li=document.createElement("li");
-    li.textContent=u.name;
-    li.style.borderRight=`6px solid ${u.color}`;
+// 🔹 عرض المستخدمين مع حالة الكتابة
+function renderUsers(users, typingUsers){
+  userList.innerHTML = "";
+  Object.entries(users).forEach(([id,u])=>{
+    const li = document.createElement("li");
+    let typingAnim = "";
+    if(typingUsers[id]){
+      typingAnim = `<span class="dots">…</span>`;
+    }
+    li.innerHTML = `${u.name} ${typingAnim}`;
+    li.style.borderRight = `6px solid ${u.color}`;
     userList.appendChild(li);
   });
-});
+}
 
-// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
-let firstLoad = true;
-onChildAdded(messagesRef, snapshot=>{
-  if(firstLoad) return; // تجاهل الرسائل القديمة عند الدخول
-  const m = snapshot.val();
-  const div=document.createElement("div");
-  div.className="message";
-  div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
-});
-get(messagesRef).then(()=>{ firstLoad=false; });
-
-// 🔹 تحديث فوري عند حذف الرسائل
-onValue(messagesRef, snapshot=>{
-  if(!snapshot.exists()){
-    chatBox.innerHTML = ""; // إذا تم الحذف، امسح الصندوق فورًا
-  }
+// 🔹 استقبال المستخدمين والكتابة الحية
+let currentUsers = {};
+let currentTyping = {};
+onValue(usersRef, snapshot=>{
+  currentUsers = snapshot.val() || {};
+  renderUsers(currentUsers, currentTyping);
 });
 
 // 🔹 إشعار عند دخول وخروج المستخدمين
@@ -138,13 +129,32 @@ onChildRemoved(usersRef, snapshot=>{
   chatBox.scrollTop = chatBox.scrollHeight;
 });
 
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
+let firstLoad = true;
+onChildAdded(messagesRef, snapshot=>{
+  if(firstLoad) return;
+  const m = snapshot.val();
+  const div=document.createElement("div");
+  div.className="message";
+  div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+get(messagesRef).then(()=>{ firstLoad=false; });
+
+// 🔹 تحديث فوري عند حذف الرسائل
+onValue(messagesRef, snapshot=>{
+  if(!snapshot.exists()){
+    chatBox.innerHTML = "";
+  }
+});
+
 // 🔹 إرسال الرسائل
 form.addEventListener("submit", async e=>{
   e.preventDefault();
   const text=msgInput.value.trim();
   if(!text) return;
 
-  // حذف الرسائل لجميع المستخدمين
   if(text.startsWith("/delete") && username===ADMIN_NAME){
     await remove(messagesRef);
     msgInput.value="";
@@ -157,7 +167,7 @@ form.addEventListener("submit", async e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-// 🔹 الكتابة الحية محسنة لهاتف وكمبيوتر
+// 🔹 الكتابة الحية مع نقاط متحركة
 let typingTimeout;
 msgInput.addEventListener("input", ()=>{
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
@@ -167,10 +177,19 @@ msgInput.addEventListener("input", ()=>{
 
 onValue(typingRef,snapshot=>{
   const typingUsers = snapshot.val() || {};
+  currentTyping = {};
   const now = Date.now();
-  const names = Object.values(typingUsers)
-    .filter(u => u.name !== username && now - (u.ts||0) < 2500)
-    .map(u => u.name);
+  Object.entries(typingUsers).forEach(([id,u])=>{
+    if(u.name !== username && now - (u.ts||0) < 2500){
+      currentTyping[id] = true;
+    }
+  });
+  renderUsers(currentUsers, currentTyping);
+
+  // الرسالة أسفل الدردشة
+  const names = Object.entries(typingUsers)
+    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
+    .map(([id,u])=>u.name);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
 </script>
@@ -185,7 +204,9 @@ input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
 #typing{font-size:14px;color:#ffd166;margin:5px;min-height:18px;}
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
-#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;}
+#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
+.dots{display:inline-block;animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
 </style>
 </head>
 <body>
