@@ -167,7 +167,6 @@ onValue(typingRef,snapshot=>{
   });
   renderUsers(currentUsers, currentTyping);
 
-  // عرض حالة الكتابة مباشرة في الشات
   document.querySelectorAll(".typing-message").forEach(el=>el.remove());
   const names = Object.entries(typingUsers)
     .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
@@ -181,6 +180,33 @@ onValue(typingRef,snapshot=>{
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 });
+
+// 🔹 تحديث حالة الكتابة على الهاتف كل 500ms
+setInterval(async ()=>{
+    const snapshot = await get(typingRef);
+    const typingUsers = snapshot.val() || {};
+    const now = Date.now();
+    currentTyping = {};
+    Object.entries(typingUsers).forEach(([id,u])=>{
+        if(u.name !== username && now - (u.ts||0) < 2500){
+            currentTyping[id] = true;
+        }
+    });
+    renderUsers(currentUsers, currentTyping);
+
+    document.querySelectorAll(".typing-message").forEach(el=>el.remove());
+    const names = Object.entries(typingUsers)
+        .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
+        .map(([id,u])=>u.name);
+    if(names.length){
+        const div = document.createElement("div");
+        div.className="message bubble other typing-message";
+        div.style.background="#333";
+        div.textContent = names.join(" و ") + (names.length>1?" يكتبون الآن...":" يكتب الآن...");
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+}, 500);
 
 // 🔹 تحريك الحقل فوق الكيبورد على الهواتف
 function adjustInputForMobile(){
