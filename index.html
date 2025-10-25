@@ -7,7 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -27,11 +27,10 @@ const db = getDatabase(app);
 const usersRef = ref(db, "users");
 const messagesRef = ref(db, "messages");
 const typingRef = ref(db, "typing");
-const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA";
 
-// 🔹 إنشاء معرف فريد للجهاز
+// 🔹 معرف فريد للجهاز
 let deviceId = localStorage.getItem("chat_device_id");
 if (!deviceId) {
   deviceId = "dev_" + Math.floor(Math.random() * 1e9);
@@ -41,35 +40,23 @@ if (!deviceId) {
 // 🔹 اختيار الاسم
 async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
-  const savedSnap = await get(savedUsersRef);
-  const savedData = savedSnap.val() || {};
-
-  if (username && savedData[username]?.deviceId === deviceId) return username;
-
-  let valid = false;
-  while (!valid) {
-    username = prompt("اكتب اسمك:")?.trim();
-    if (!username) { alert("⚠️ يجب إدخال اسم صالح!"); continue; }
-
-    const usersSnap = await get(usersRef);
-    const usersData = usersSnap.val() || {};
-    const nameTaken = Object.values(usersData).some(u => u.name === username);
-    const nameSavedElsewhere = savedData[username] && savedData[username].deviceId !== deviceId;
-
-    if (nameTaken || nameSavedElsewhere) { alert("❌ هذا الاسم مستخدم!"); continue; }
-    valid = true;
+  if (!username) {
+    let valid = false;
+    while (!valid) {
+      username = prompt("اكتب اسمك:")?.trim();
+      if (!username) { alert("⚠️ يجب إدخال اسم صالح!"); continue; }
+      valid = true;
+    }
+    localStorage.setItem("chat_username", username);
   }
-
-  localStorage.setItem("chat_username", username);
   return username;
 }
 
 const username = await chooseUsername();
 
-// 🔹 اختيار اللون
+// 🔹 اختيار لون عشوائي
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 let userColor = colors[Math.floor(Math.random() * colors.length)];
-await set(ref(db, "savedUsers/" + username), { color: userColor, deviceId });
 
 // 🔹 إنشاء المستخدم في قاعدة البيانات
 const userId = "user_" + Math.floor(Math.random() * 100000);
@@ -96,6 +83,9 @@ const msgInput = document.getElementById("msg");
 const chatBox = document.getElementById("chat");
 const typingBox = document.getElementById("typing");
 
+// 🔹 وقت دخول المستخدم للجلسة الحالية
+const sessionStart = Date.now();
+
 // 🔹 إرسال الرسائل
 form.addEventListener("submit", async e => {
   e.preventDefault();
@@ -115,12 +105,10 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
-// 🔹 استقبال الرسائل الجديدة بعد دخول المستخدم
-const initialLoadTime = Date.now(); // وقت دخول المستخدم
-
+// 🔹 استقبال الرسائل الجديدة بعد دخول المستخدم فقط
 onChildAdded(messagesRef, snapshot => {
   const m = snapshot.val();
-  if (m.timestamp >= initialLoadTime) {
+  if (m.timestamp >= sessionStart) {
     const div = document.createElement("div");
     div.className = "message";
     div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
