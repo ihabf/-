@@ -49,14 +49,14 @@ async function chooseUsername() {
   let valid = false;
   while (!valid) {
     username = prompt("اكتب اسمك:")?.trim();
-    if (!username) continue;
+    if (!username) { alert("⚠️ يجب إدخال اسم صالح!"); continue; }
 
     const usersSnap = await get(usersRef);
     const usersData = usersSnap.val() || {};
     const nameTaken = Object.values(usersData).some(u => u.name === username);
     const nameSavedElsewhere = savedData[username] && savedData[username].deviceId !== deviceId;
 
-    if (nameTaken || nameSavedElsewhere) continue;
+    if (nameTaken || nameSavedElsewhere) { alert("❌ هذا الاسم مستخدم!"); continue; }
     valid = true;
   }
 
@@ -80,7 +80,7 @@ setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000)
 
 // 🔹 عناصر الصفحة
 const chatBox = document.getElementById("chat");
-chatBox.innerHTML = "";
+chatBox.innerHTML = ""; // فارغ عند الدخول
 
 // 🔹 عرض المستخدمين المتصلين
 onValue(usersRef, snapshot => {
@@ -107,7 +107,9 @@ form.addEventListener("submit", async e => {
 
   if (text.startsWith("/delete") && username === ADMIN_NAME) {
     await remove(messagesRef); // حذف الرسائل لجميع المستخدمين
+    chatBox.innerHTML = "";
     msgInput.value = "";
+    alert("✅ تم حذف جميع الرسائل بواسطة المدير!");
     return;
   }
 
@@ -117,18 +119,20 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
-// 🔹 تحديث الشات تلقائيًا عند أي تغيير في الرسائل
-onValue(messagesRef, snapshot => {
-  const msgs = snapshot.val() || {};
-  chatBox.innerHTML = "";
-  Object.values(msgs).forEach(m => {
-    const div = document.createElement("div");
-    div.className = "message";
-    div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-    chatBox.appendChild(div);
-  });
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم + تحديث مباشر
+let firstLoad = true; // لتجاهل الرسائل القديمة عند الدخول
+onChildAdded(messagesRef, snapshot => {
+  if (firstLoad) return; // نتجاهل الرسائل الموجودة مسبقًا
+  const m = snapshot.val();
+  const div = document.createElement("div");
+  div.className = "message";
+  div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
+
+// تفعيل استقبال الرسائل الجديدة بعد قليل من الدخول
+setTimeout(() => { firstLoad = false; }, 500);
 
 // 🔹 الكتابة الحية
 msgInput.addEventListener("input", () => {
