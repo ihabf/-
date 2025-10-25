@@ -9,10 +9,9 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import {
       getDatabase, ref, push, set, remove, onValue, onChildAdded,
-      onDisconnect, serverTimestamp, get
+      onDisconnect, serverTimestamp, get, update
     } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-    // ✅ إعداد Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
       authDomain: "kelta-gmae.firebaseapp.com",
@@ -27,63 +26,63 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // 🔹 المراجع
     const usersRef = ref(db, "users");
     const messagesRef = ref(db, "messages");
     const chatRef = ref(db, "chat");
     const typingRef = ref(db, "typing");
 
-    // ✅ دالة التحقق من عدد المستخدمين الحقيقيين
+    const userId = "user_" + Math.floor(Math.random() * 100000);
+    const username = prompt("اكتب اسمك:")?.trim() || "مجهول";
+    const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
+    const userColor = colors[Math.floor(Math.random() * colors.length)];
+
+    const userRef = ref(db, "users/" + userId);
+    await set(userRef, {
+      name: username,
+      color: userColor,
+      online: true,
+      lastSeen: Date.now()
+    });
+
+    // تحديث حالة المستخدم كل 5 ثوانٍ
+    setInterval(() => {
+      update(userRef, { online: true, lastSeen: Date.now() });
+    }, 5000);
+
+    // عند الإغلاق أو الخروج
+    onDisconnect(userRef).remove();
+
+    // 🔹 حذف البيانات إن لم يبقَ أحد متصل فعليًا
     async function cleanupIfEmpty() {
-      try {
-        const snapshot = await get(usersRef);
-        const users = snapshot.val();
+      const snapshot = await get(usersRef);
+      const users = snapshot.val() || {};
+      const now = Date.now();
 
-        if (!users || Object.keys(users).length === 0) {
-          console.log("🚮 لا يوجد أي مستخدم متصل — حذف جميع البيانات الآن...");
+      // الاحتفاظ فقط بالمستخدمين الذين ظهروا آخر 10 ثوانٍ
+      const activeUsers = Object.values(users).filter(u => now - (u.lastSeen || 0) < 10000);
 
-          await Promise.all([
-            remove(messagesRef),
-            remove(chatRef),
-            remove(typingRef)
-          ]);
-
-          console.log("✅ تم حذف جميع السجلات بنجاح");
-        } else {
-          console.log(`👥 عدد المستخدمين الحاليين: ${Object.keys(users).length}`);
-        }
-      } catch (err) {
-        console.error("❌ حدث خطأ أثناء محاولة الحذف:", err);
+      if (activeUsers.length === 0) {
+        console.log("🚮 لا يوجد أي مستخدم نشط — حذف جميع البيانات...");
+        await Promise.all([
+          remove(messagesRef),
+          remove(chatRef),
+          remove(typingRef),
+          remove(usersRef)
+        ]);
+        console.log("✅ تم الحذف بنجاح");
+      } else {
+        console.log(`👥 مستخدمون نشطون: ${activeUsers.length}`);
       }
     }
 
-    // 🔁 فحص كل 10 ثوانٍ
     setInterval(cleanupIfEmpty, 10000);
 
-    // 🔹 إنشاء هوية المستخدم
-    const userId = "user_" + Math.floor(Math.random() * 100000);
-    let username = prompt("اكتب اسمك:")?.trim() || "مجهول";
-
-    // 🔹 اختيار لون عشوائي
-    const colors = ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff", "#a0c4ff", "#bdb2ff", "#ffc6ff"];
-    const userColor = colors[Math.floor(Math.random() * colors.length)];
-
-    // 🔹 تسجيل المستخدم في القاعدة
-    const userRef = ref(db, "users/" + userId);
-    await set(userRef, { name: username, color: userColor, joinedAt: serverTimestamp() });
-
-    // 🔹 حذف المستخدم عند الخروج ثم فحص القائمة
-    onDisconnect(userRef).remove().then(() => {
-      setTimeout(cleanupIfEmpty, 3000);
-    });
-
-    // 🔹 مراقبة المستخدمين
+    // 🔹 مراقبة المستخدمين في القائمة
     onValue(usersRef, (snapshot) => {
       const users = snapshot.val() || {};
       const userList = document.getElementById("users");
       userList.innerHTML = "";
-
-      Object.values(users).forEach((u) => {
+      Object.values(users).forEach(u => {
         const li = document.createElement("li");
         li.textContent = u.name;
         li.style.borderRight = `6px solid ${u.color}`;
@@ -97,24 +96,23 @@
     const chatBox = document.getElementById("chat");
     const typingBox = document.getElementById("typing");
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", e => {
       e.preventDefault();
       const text = msgInput.value.trim();
-      if (text) {
-        const msgRef = push(messagesRef);
-        set(msgRef, {
-          user: username,
-          color: userColor,
-          text,
-          time: new Date().toLocaleTimeString()
-        });
-        msgInput.value = "";
-        remove(ref(db, "typing/" + userId));
-      }
+      if (!text) return;
+      const msgRef = push(messagesRef);
+      set(msgRef, {
+        user: username,
+        color: userColor,
+        text,
+        time: new Date().toLocaleTimeString()
+      });
+      msgInput.value = "";
+      remove(ref(db, "typing/" + userId));
     });
 
-    // 🔹 عرض الرسائل فور وصولها
-    onChildAdded(messagesRef, (snapshot) => {
+    // 🔹 عرض الرسائل الجديدة
+    onChildAdded(messagesRef, snapshot => {
       const m = snapshot.val();
       const div = document.createElement("div");
       div.className = "message";
@@ -132,13 +130,11 @@
       }, 2000);
     });
 
-    // 🔹 عرض من يكتب الآن
-    onValue(typingRef, (snapshot) => {
+    onValue(typingRef, snapshot => {
       const typingUsers = snapshot.val() || {};
       const names = Object.values(typingUsers)
-        .map((u) => u.name)
-        .filter((n) => n !== username);
-
+        .map(u => u.name)
+        .filter(n => n !== username);
       typingBox.textContent = names.length
         ? `${names.join(" و ")} ${names.length > 1 ? "يكتبون الآن..." : "يكتب الآن..."}`
         : "";
@@ -158,94 +154,18 @@
       align-items: center;
       height: 100vh;
     }
-
-    h2 {
-      color: #ffd166;
-      margin: 15px 0;
-      font-size: 1.3em;
-    }
-
+    h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
     #chat {
-      flex: 1;
-      width: 95%;
-      max-width: 600px;
-      overflow-y: auto;
-      border: 1px solid #333;
-      padding: 10px;
-      background: #1b1b1b;
-      border-radius: 10px;
-      text-align: left;
-      box-sizing: border-box;
+      flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;
+      padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box;
     }
-
-    .message {
-      margin-bottom: 6px;
-      line-height: 1.4;
-      word-wrap: break-word;
-    }
-
-    form {
-      width: 95%;
-      max-width: 600px;
-      display: flex;
-      justify-content: space-between;
-      gap: 5px;
-      margin: 10px auto;
-    }
-
-    input {
-      flex: 1;
-      padding: 10px;
-      border-radius: 6px;
-      border: none;
-      outline: none;
-      background: #222;
-      color: #eee;
-      font-size: 16px;
-    }
-
-    button {
-      padding: 10px 15px;
-      border: none;
-      border-radius: 6px;
-      background: #06d6a0;
-      color: #000;
-      font-weight: bold;
-      cursor: pointer;
-      font-size: 15px;
-    }
-
-    #typing {
-      font-size: 14px;
-      color: #aaa;
-      margin: 5px;
-      min-height: 18px;
-    }
-
-    #users {
-      list-style: none;
-      padding: 0;
-      margin: 10px 0;
-      width: 90%;
-      max-width: 400px;
-    }
-
-    #users li {
-      background: #222;
-      margin: 5px 0;
-      padding: 8px;
-      border-radius: 6px;
-      text-align: right;
-      font-weight: 600;
-      border-right: 6px solid #666;
-    }
-
-    @media (max-width: 600px) {
-      h2 { font-size: 1.1em; }
-      input, button { font-size: 14px; }
-      #chat { height: 50vh; }
-      #users li { font-size: 14px; }
-    }
+    .message{margin-bottom:6px;line-height:1.4;word-wrap:break-word;}
+    form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
+    input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
+    button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
+    #typing{font-size:14px;color:#aaa;margin:5px;min-height:18px;}
+    #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
+    #users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;}
   </style>
 </head>
 <body>
