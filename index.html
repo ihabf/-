@@ -201,12 +201,12 @@ if(localStorage.getItem("theme")==="light") document.body.classList.add("light")
 <style>
 body {
   font-family:"Cairo",sans-serif;
-  background:#181818; /* خلفية داكنة محسّنة */
+  background:#181818;
   color:#ddd;
   margin:0; padding:0; display:flex; flex-direction:column;
   align-items:center; height:100vh; transition:0.3s;
 }
-body.light { background:#fafafa; color:#222; }
+body.light { background: linear-gradient(90deg, #f4f0f4,#45484a); color:#222; }
 
 h2 { color:#48dbfb; margin:15px 0;font-size:1.4em; text-shadow:0 0 5px #48dbfb; }
 #chat {
@@ -218,14 +218,22 @@ body.light #chat { background:#f7f7f7; }
 
 .message{
   margin-bottom:10px;line-height:1.5;word-wrap:break-word;
-  padding:10px 14px;border-radius:18px;max-width:80%;
-  background:#2f2f2f; box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
+  padding:10px 14px;border-radius:18px;max-width:fit-content;
+  background:radial-gradient(at 47.966219997892225% 59.17791208933168%, hsla(195, 8.16%, 19.21%, 1) 0%, hsla(195, 8.16%, 19.21%, 0) 100%),
+             radial-gradient(at 47.649% 82.394%, hsla(0, 6.25%, 18.82%, 1) 0%, hsla(0, 6.25%, 18.82%, 0) 100%),
+             radial-gradient(at 95.492% 30.99%, hsla(135, 5.45%, 43.13%, 1) 0%, hsla(135, 5.45%, 43.13%, 0) 100%),
+             radial-gradient(at 33.06% 63.91%, hsla(196, 8.02%, 36.66%, 1) 0%, hsla(196, 8.02%, 36.66%, 0) 100%),
+             radial-gradient(at 15.14% 8.34%, hsla(195, 8.16%, 19.21%, 1) 0%, hsla(195, 8.16%, 19.21%, 0) 100%);
+  box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
 }
-body.light .message { background:#eaeaea; color:#222; }
-.message.mine { margin-left:auto; background:#1dd1a1; color:#fff; }
-body.light .message.mine { background:#48dbfb; color:#fff; }
-.message.other { margin-right:auto; background:#2f2f2f; color:#ddd; }
-body.light .message.other { background:#e5e5e5; color:#222; }
+body.light .message {
+  background: linear-gradient(90deg, #f4f0f4,#45484a);
+  color:#222;
+}
+.message.mine { margin-left:auto; color:#fff; }
+body.light .message.mine { color:#fff; }
+.message.other { margin-right:auto; color:#ddd; }
+body.light .message.other { color:#222; }
 
 .message.system {color:#a3ffad;font-style:italic;font-size:0.95em;text-align:center;background:transparent;box-shadow:none;}
 .message.system.leave {color:#ff7b7b;}
