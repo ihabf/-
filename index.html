@@ -188,13 +188,12 @@ onValue(typingRef, snapshot=>{
 // 🔹 تحريك الحقل فوق الكيبورد على الهواتف
 function adjustInputForMobile(){
   if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){
-    msgInput.style.position = "relative"; // أو احذف هذا السطر بالكامل
-msgInput.style.bottom = "";
-msgInput.style.left = "";
-msgInput.style.width = "auto"; // أو اتركه كما هو إذا أردت
-msgInput.style.borderRadius = "6px"; // كما في باقي الحقول
-msgInput.style.zIndex = "auto";
-
+    msgInput.style.position = "relative";
+    msgInput.style.bottom = "";
+    msgInput.style.left = "";
+    msgInput.style.width = "auto";
+    msgInput.style.borderRadius = "6px";
+    msgInput.style.zIndex = "auto";
   }
 }
 adjustInputForMobile();
@@ -205,6 +204,8 @@ window.addEventListener("resize", adjustInputForMobile);
 <style>
 body { font-family: "Cairo", sans-serif; background:#0e0e0e; color:#eee; margin:0; padding:0; text-align:center; display:flex; flex-direction:column; align-items:center; height:100vh; }
 h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
+#users {list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
+#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
 #chat { flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box; display:flex; flex-direction:column; gap:4px;}
 .message {margin:2px 0; line-height:1.4; word-wrap:break-word; }
 .bubble {padding:8px 12px; border-radius:18px; max-width:80%; display:inline-block; }
@@ -214,11 +215,8 @@ h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
 form{width:95%;max-width:600px;display:flex;gap:5px;margin:0 auto; position:fixed; bottom:0; left:50%; transform:translateX(-50%); background:#0e0e0e; padding:10px; border-radius:8px; box-sizing:border-box;}
 input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
-#users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
-#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
 .dots{display:inline-block; font-family: monospace; color:#ffd166; animation:blinkDots 1s linear infinite;}
 @keyframes blinkDots{0%{opacity:0.2;}25%{opacity:0.5;}50%{opacity:1;}75%{opacity:0.5;}100%{opacity:0.2;}}
-
 @media screen and (max-width:600px){
   #chat { max-height:60vh; }
 }
@@ -226,13 +224,16 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 </head>
 <body>
 <h2>💬 دردشة مؤقتة</h2>
+
+<h3>المتصلون الآن:</h3>
+<ul id="users"></ul>
+
 <div id="chat"></div>
+
 <form id="chatForm">
   <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
   <button>إرسال</button>
 </form>
-<h3>المتصلون الآن:</h3>
-<ul id="users"></ul>
+
 </body>
 </html>
-
