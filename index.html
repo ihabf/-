@@ -7,7 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -106,13 +106,7 @@ form.addEventListener("submit", async e => {
   if (!text) return;
 
   if (text.startsWith("/delete") && username === ADMIN_NAME) {
-    await remove(messagesRef); // حذف الرسائل لجميع المستخدمين
-    chatBox.innerHTML = "";
-    
-    // إرسال رسالة خاصة لتحديث كل المستخدمين مباشرة
-    const msgRef = push(messagesRef);
-    await set(msgRef, { user: "النظام", color: "#ff5555", text: "✅ تم حذف جميع الرسائل بواسطة المدير!", time: new Date().toLocaleTimeString() });
-
+    await remove(messagesRef); // حذف جميع الرسائل في قاعدة البيانات
     msgInput.value = "";
     return;
   }
@@ -123,22 +117,18 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
-// 🔹 استقبال الرسائل الجديدة + تحديث مباشر
-let firstLoad = true;
-onChildAdded(messagesRef, snapshot => {
-  const m = snapshot.val();
-  if (!m) return;
-
-  // تحديث مباشر للرسائل المحذوفة
-  if (firstLoad) return; // نتجاهل الرسائل القديمة عند الدخول
-  const div = document.createElement("div");
-  div.className = "message";
-  div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-  chatBox.appendChild(div);
+// 🔹 استقبال جميع الرسائل والتحديث فوراً عند أي تغيير
+onValue(messagesRef, snapshot => {
+  const msgs = snapshot.val() || {};
+  chatBox.innerHTML = ""; // مسح الشات الحالي
+  Object.values(msgs).forEach(m => {
+    const div = document.createElement("div");
+    div.className = "message";
+    div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+    chatBox.appendChild(div);
+  });
   chatBox.scrollTop = chatBox.scrollHeight;
 });
-
-setTimeout(() => { firstLoad = false; }, 500);
 
 // 🔹 الكتابة الحية
 msgInput.addEventListener("input", () => {
