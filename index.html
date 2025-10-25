@@ -12,6 +12,7 @@
       onDisconnect, serverTimestamp, get, update
     } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
+    // 🔹 إعدادات Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
       authDomain: "kelta-gmae.firebaseapp.com",
@@ -26,11 +27,13 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // 🔹 المراجع في قاعدة البيانات
     const usersRef = ref(db, "users");
     const messagesRef = ref(db, "messages");
     const chatRef = ref(db, "chat");
     const typingRef = ref(db, "typing");
 
+    // 🔹 إنشاء مستخدم عشوائي
     const userId = "user_" + Math.floor(Math.random() * 100000);
     const username = prompt("اكتب اسمك:")?.trim() || "مجهول";
     const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
@@ -44,40 +47,41 @@
       lastSeen: Date.now()
     });
 
-    // تحديث حالة المستخدم كل 5 ثوانٍ
+    // 🔹 تحديث حالة المستخدم كل 5 ثوانٍ
     setInterval(() => {
       update(userRef, { online: true, lastSeen: Date.now() });
     }, 5000);
 
-    // عند الإغلاق أو الخروج
+    // 🔹 عند مغادرة المستخدم
     onDisconnect(userRef).remove();
 
-    // 🔹 حذف البيانات إن لم يبقَ أحد متصل فعليًا
+    // 🔹 حذف الدردشة إذا لم يبقَ أحد نشط فعليًا
     async function cleanupIfEmpty() {
       const snapshot = await get(usersRef);
       const users = snapshot.val() || {};
       const now = Date.now();
 
-      // الاحتفاظ فقط بالمستخدمين الذين ظهروا آخر 10 ثوانٍ
+      // 🔸 فقط من ظهر آخر 10 ثوانٍ يُعتبر نشطًا
       const activeUsers = Object.values(users).filter(u => now - (u.lastSeen || 0) < 10000);
 
       if (activeUsers.length === 0) {
-        console.log("🚮 لا يوجد أي مستخدم نشط — حذف جميع البيانات...");
+        console.log("🚮 لا يوجد أي مستخدم نشط — سيتم حذف جميع البيانات...");
         await Promise.all([
           remove(messagesRef),
           remove(chatRef),
           remove(typingRef),
           remove(usersRef)
         ]);
-        console.log("✅ تم الحذف بنجاح");
+        console.log("✅ تم حذف جميع البيانات بنجاح!");
       } else {
-        console.log(`👥 مستخدمون نشطون: ${activeUsers.length}`);
+        console.log(`👥 عدد المستخدمين النشطين: ${activeUsers.length}`);
       }
     }
 
+    // 🔹 فحص كل 10 ثوانٍ
     setInterval(cleanupIfEmpty, 10000);
 
-    // 🔹 مراقبة المستخدمين في القائمة
+    // 🔹 عرض المستخدمين المتصلين
     onValue(usersRef, (snapshot) => {
       const users = snapshot.val() || {};
       const userList = document.getElementById("users");
@@ -121,7 +125,7 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     });
 
-    // 🔹 ميزة "يكتب الآن..."
+    // 🔹 عرض "يكتب الآن..."
     msgInput.addEventListener("input", () => {
       set(ref(db, "typing/" + userId), { name: username });
       clearTimeout(window.typingTimeout);
