@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>💬 دردشة مؤقتة - نسخة فورية</title>
+<title>💬 دردشة مؤقتة</title>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -49,14 +49,14 @@ async function chooseUsername() {
   let valid = false;
   while (!valid) {
     username = prompt("اكتب اسمك:")?.trim();
-    if (!username) continue;
+    if (!username) { alert("⚠️ يجب إدخال اسم صالح!"); continue; }
 
     const usersSnap = await get(usersRef);
     const usersData = usersSnap.val() || {};
     const nameTaken = Object.values(usersData).some(u => u.name === username);
     const nameSavedElsewhere = savedData[username] && savedData[username].deviceId !== deviceId;
 
-    if (nameTaken || nameSavedElsewhere) continue;
+    if (nameTaken || nameSavedElsewhere) { alert("❌ هذا الاسم مستخدم!"); continue; }
     valid = true;
   }
 
@@ -71,7 +71,7 @@ const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bd
 let userColor = colors[Math.floor(Math.random() * colors.length)];
 await set(ref(db, "savedUsers/" + username), { color: userColor, deviceId });
 
-// 🔹 إنشاء المستخدم
+// 🔹 إنشاء المستخدم في قاعدة البيانات
 const userId = "user_" + Math.floor(Math.random() * 100000);
 const userRef = ref(db, "users/" + userId);
 await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now() });
@@ -80,7 +80,7 @@ setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000)
 
 // 🔹 عناصر الصفحة
 const chatBox = document.getElementById("chat");
-chatBox.innerHTML = "";
+chatBox.innerHTML = ""; // فارغ عند الدخول
 
 // 🔹 عرض المستخدمين المتصلين
 onValue(usersRef, snapshot => {
@@ -106,14 +106,16 @@ form.addEventListener("submit", async e => {
   if (!text) return;
 
   if (text.startsWith("/delete") && username === ADMIN_NAME) {
-    // حذف الرسائل فورياً لكل المستخدمين
-    await remove(messagesRef);
-    chatBox.innerHTML = "";
+    form.addEventListener("submit", async e => {
+  e.preventDefault();
+  const text = msgInput.value.trim();
+  if (!text) return;
+
+  // 🔹 الحذف الفوري فقط إذا كان المدير
+  if (text.startsWith("/delete") && username === ADMIN_NAME) {
+    await remove(messagesRef); // حذف الرسائل فورياً لجميع المستخدمين
+    chatBox.innerHTML = "";     // تفريغ واجهة الدردشة مباشرة
     msgInput.value = "";
-    
-    // إرسال رسالة إعلامية لجميع المستخدمين عن الحذف
-    const infoRef = push(messagesRef);
-    await set(infoRef, { user: "⚠️ النظام", color: "#ff4d4d", text: "جميع الرسائل تم حذفها بواسطة المدير!", time: new Date().toLocaleTimeString() });
     return;
   }
 
@@ -123,16 +125,27 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
-// 🔹 استقبال الرسائل الجديدة فورياً
+
+  const msgRef = push(messagesRef);
+  await set(msgRef, { user: username, color: userColor, text, time: new Date().toLocaleTimeString() });
+  msgInput.value = "";
+  remove(ref(db, "typing/" + userId));
+});
+
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم + تحديث مباشر
+let firstLoad = true; // لتجاهل الرسائل القديمة عند الدخول
 onChildAdded(messagesRef, snapshot => {
+  if (firstLoad) return; // نتجاهل الرسائل الموجودة مسبقًا
   const m = snapshot.val();
-  if (!m) return;
   const div = document.createElement("div");
   div.className = "message";
   div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
+
+// تفعيل استقبال الرسائل الجديدة بعد قليل من الدخول
+setTimeout(() => { firstLoad = false; }, 500);
 
 // 🔹 الكتابة الحية
 msgInput.addEventListener("input", () => {
@@ -162,7 +175,7 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 </style>
 </head>
 <body>
-<h2>💬 دردشة مؤقتة - نسخة فورية</h2>
+<h2>💬 دردشة مؤقتة</h2>
 <div id="chat"></div>
 <div id="typing"></div>
 <form id="chatForm">
