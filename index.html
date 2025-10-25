@@ -11,15 +11,16 @@
       onDisconnect, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-    // إعداد Firebase
+    // ✅ إعداد Firebase ببياناتك الحقيقية
     const firebaseConfig = {
-      apiKey: "AIzaSy...", // ⚠️ ضع بياناتك الحقيقية هنا
-      authDomain: "example.firebaseapp.com",
-      databaseURL: "https://example-default-rtdb.firebaseio.com",
-      projectId: "example",
-      storageBucket: "example.appspot.com",
-      messagingSenderId: "123456789",
-      appId: "1:123456789:web:abc123"
+      apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
+      authDomain: "kelta-gmae.firebaseapp.com",
+      databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
+      projectId: "kelta-gmae",
+      storageBucket: "kelta-gmae.firebasestorage.app",
+      messagingSenderId: "247464874751",
+      appId: "1:247464874751:web:779a3120e6b422fdee72ca",
+      measurementId: "G-6C8HGRKLHS"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -96,9 +97,7 @@
 
     // 🔹 ميزة "يكتب الآن..."
     msgInput.addEventListener("input", () => {
-      // أبلغ عن حالة الكتابة
       set(ref(db, "typing/" + userId), { name: username });
-      // احذفها بعد ثانيتين من آخر ضغط
       clearTimeout(window.typingTimeout);
       window.typingTimeout = setTimeout(() => {
         remove(ref(db, "typing/" + userId));
@@ -110,7 +109,7 @@
       const typingUsers = snapshot.val() || {};
       const names = Object.values(typingUsers)
         .map((u) => u.name)
-        .filter((n) => n !== username); // لا تُظهر نفسك
+        .filter((n) => n !== username);
 
       typingBox.textContent = names.length
         ? `${names.join(" و ")} ${names.length > 1 ? "يكتبون الآن..." : "يكتب الآن..."}`
