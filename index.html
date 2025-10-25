@@ -108,7 +108,8 @@ form.addEventListener("submit", async e => {
   // 🔹 حذف الرسائل فوري لجميع المستخدمين
   if (text.startsWith("/delete") && username === ADMIN_NAME) {
     await remove(messagesRef);
-    chatBox.innerHTML = "";
+    chatBox.innerHTML = "";     // مسح الشات فورًا
+    firstLoad = true;           // إعادة تفعيل تجاهل الرسائل القديمة
     msgInput.value = "";
     return;
   }
@@ -122,7 +123,7 @@ form.addEventListener("submit", async e => {
 // 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم + تحديث مباشر
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot => {
-  if (firstLoad) return;
+  if (firstLoad) return; // تجاهل الرسائل القديمة
   const m = snapshot.val();
   const div = document.createElement("div");
   div.className = "message";
