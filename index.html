@@ -29,7 +29,7 @@ const messagesRef = ref(db, "messages");
 const typingRef = ref(db, "typing");
 const savedUsersRef = ref(db, "savedUsers");
 
-const ADMIN_NAME = "KeltA"; // اسم المدير
+const ADMIN_NAME = "KeltA";
 
 // 🔹 إنشاء معرف فريد للجهاز
 let deviceId = localStorage.getItem("chat_device_id");
@@ -44,24 +44,19 @@ async function chooseUsername() {
   const savedSnap = await get(savedUsersRef);
   const savedData = savedSnap.val() || {};
 
-  if (username && savedData[username]?.deviceId === deviceId) {
-    return username;
-  }
+  if (username && savedData[username]?.deviceId === deviceId) return username;
 
   let valid = false;
   while (!valid) {
     username = prompt("اكتب اسمك:")?.trim();
-    if (!username) { alert("⚠️ يجب إدخال اسم صالح للدخول!"); continue; }
+    if (!username) { alert("⚠️ يجب إدخال اسم صالح!"); continue; }
 
     const usersSnap = await get(usersRef);
     const usersData = usersSnap.val() || {};
     const nameTaken = Object.values(usersData).some(u => u.name === username);
     const nameSavedElsewhere = savedData[username] && savedData[username].deviceId !== deviceId;
 
-    if (nameTaken || nameSavedElsewhere) {
-      alert("❌ هذا الاسم مستخدم بالفعل أو محفوظ لجهاز آخر! اختر اسمًا آخر.");
-      continue;
-    }
+    if (nameTaken || nameSavedElsewhere) { alert("❌ هذا الاسم مستخدم!"); continue; }
     valid = true;
   }
 
@@ -71,7 +66,7 @@ async function chooseUsername() {
 
 const username = await chooseUsername();
 
-// 🔹 اختيار اللون
+// 🔹 اختيار اللون وحفظه
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 let userColor = colors[Math.floor(Math.random() * colors.length)];
 await set(ref(db, "savedUsers/" + username), { color: userColor, deviceId });
@@ -83,7 +78,7 @@ await set(userRef, { name: username, color: userColor, online: true, lastSeen: D
 onDisconnect(userRef).remove();
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-// 🔹 فور دخول المستخدم، اجعل الشات فارغًا في جهازه فورًا
+// 🔹 الشات يكون فارغ عند الدخول
 const chatBox = document.getElementById("chat");
 chatBox.innerHTML = "";
 
@@ -124,14 +119,18 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
-// 🔹 عرض الرسائل الجديدة (بعد دخول المستخدم فقط للرسائل القادمة)
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 onChildAdded(messagesRef, snapshot => {
   const m = snapshot.val();
-  const div = document.createElement("div");
-  div.className = "message";
-  div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
+  // تجاهل الرسائل القديمة، عرض الرسائل القادمة فقط
+  if (!m._seen) {
+    m._seen = true; // علامة مؤقتة للمستخدم الحالي
+    const div = document.createElement("div");
+    div.className = "message";
+    div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
 });
 
 // 🔹 الكتابة الحية
