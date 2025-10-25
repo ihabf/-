@@ -49,14 +49,14 @@ async function chooseUsername() {
   let valid = false;
   while (!valid) {
     username = prompt("اكتب اسمك:")?.trim();
-    if (!username) { alert("⚠️ يجب إدخال اسم صالح!"); continue; }
+    if (!username) continue;
 
     const usersSnap = await get(usersRef);
     const usersData = usersSnap.val() || {};
     const nameTaken = Object.values(usersData).some(u => u.name === username);
     const nameSavedElsewhere = savedData[username] && savedData[username].deviceId !== deviceId;
 
-    if (nameTaken || nameSavedElsewhere) { alert("❌ هذا الاسم مستخدم!"); continue; }
+    if (nameTaken || nameSavedElsewhere) continue;
     valid = true;
   }
 
@@ -80,7 +80,7 @@ setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000)
 
 // 🔹 عناصر الصفحة
 const chatBox = document.getElementById("chat");
-chatBox.innerHTML = ""; // فارغ عند الدخول
+chatBox.innerHTML = "";
 
 // 🔹 عرض المستخدمين المتصلين
 onValue(usersRef, snapshot => {
@@ -105,8 +105,10 @@ form.addEventListener("submit", async e => {
   const text = msgInput.value.trim();
   if (!text) return;
 
+  // 🔹 حذف الرسائل فوري لجميع المستخدمين
   if (text.startsWith("/delete") && username === ADMIN_NAME) {
-    await remove(messagesRef); // حذف الرسائل لجميع المستخدمين
+    await remove(messagesRef);
+    chatBox.innerHTML = "";
     msgInput.value = "";
     return;
   }
@@ -117,11 +119,10 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
-
 // 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم + تحديث مباشر
-let firstLoad = true; // لتجاهل الرسائل القديمة عند الدخول
+let firstLoad = true;
 onChildAdded(messagesRef, snapshot => {
-  if (firstLoad) return; // نتجاهل الرسائل الموجودة مسبقًا
+  if (firstLoad) return;
   const m = snapshot.val();
   const div = document.createElement("div");
   div.className = "message";
@@ -129,8 +130,6 @@ onChildAdded(messagesRef, snapshot => {
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
-
-// تفعيل استقبال الرسائل الجديدة بعد قليل من الدخول
 setTimeout(() => { firstLoad = false; }, 500);
 
 // 🔹 الكتابة الحية
@@ -172,5 +171,3 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 <ul id="users"></ul>
 </body>
 </html>
-
-
