@@ -31,6 +31,7 @@
     const usersRef = ref(db, "users");
     const messagesRef = ref(db, "messages");
     const typingRef = ref(db, "typing");
+    const chatRef = ref(db, "chat");
 
     // 🔹 إنشاء هوية المستخدم
     const userId = "user_" + Math.floor(Math.random() * 100000);
@@ -46,7 +47,7 @@
     onDisconnect(userRef).remove();
 
     // 🔹 مراقبة المستخدمين
-    onValue(usersRef, (snapshot) => {
+    onValue(usersRef, async (snapshot) => {
       const users = snapshot.val() || {};
       const userList = document.getElementById("users");
       userList.innerHTML = "";
@@ -58,15 +59,18 @@
         userList.appendChild(li);
       });
 
-      // ✅ إذا لم يبقَ أي مستخدم، نحذف جميع البيانات (الرسائل + المستخدمين + chat + typing)
+      // ✅ إذا لم يبقَ أي مستخدم، نحذف جميع البيانات تمامًا
       if (Object.keys(users).length === 0) {
-        console.log("🚮 لا يوجد مستخدمون متصلون - حذف جميع البيانات...");
-        setTimeout(() => {
-          set(ref(db, "messages"), null);
-          set(ref(db, "users"), null);
-          set(ref(db, "chat"), null);
-          set(ref(db, "typing"), null);
-        }, 2000);
+        console.warn("🚮 لا يوجد مستخدمون متصلون، يتم تنظيف البيانات...");
+        try {
+          await remove(messagesRef);
+          await remove(chatRef);
+          await remove(typingRef);
+          await remove(usersRef);
+          console.log("✅ تم حذف جميع بيانات الغرفة بنجاح.");
+        } catch (err) {
+          console.error("⚠️ فشل الحذف:", err);
+        }
       }
     });
 
