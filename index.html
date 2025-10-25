@@ -36,7 +36,12 @@ async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
   let valid = false;
   while (!valid) {
-    if (!username) username = prompt("اكتب اسمك:")?.trim() || "مجهول";
+    if (!username) username = prompt("اكتب اسمك:")?.trim();
+    if (!username) {
+      alert("⚠️ يجب إدخال اسم صالح للدخول!");
+      username = null;
+      continue;
+    }
 
     const usersSnap = await get(usersRef);
     const usersData = usersSnap.val() || {};
@@ -72,19 +77,20 @@ onDisconnect(userRef).remove();
 // تحديث الحالة كل 5 ثوانٍ
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-// 🔹 تنظيف الغرفة إذا فارغة
+// 🔹 تنظيف الغرفة إذا فارغة + حذف الشات تلقائيًا
 async function cleanupIfEmpty() {
   const snapshot = await get(usersRef);
   const users = snapshot.val() || {};
   const now = Date.now();
   const activeUsers = Object.values(users).filter(u => now - (u.lastSeen||0) < 10000);
+
   if (activeUsers.length === 0) {
     const messagesSnap = await get(messagesRef);
     if (messagesSnap.exists()) messagesSnap.forEach(c => remove(ref(db, "messages/" + c.key)));
     await Promise.all([remove(usersRef), remove(typingRef)]);
   }
 }
-setInterval(cleanupIfEmpty, 10000);
+setInterval(cleanupIfEmpty, 5000); // تحقق كل 5 ثوانٍ
 
 // 🔹 عرض المستخدمين
 onValue(usersRef, snapshot => {
@@ -110,7 +116,7 @@ form.addEventListener("submit", async e => {
   let text = msgInput.value.trim();
   if (!text) return;
 
-  // 🔹 التحقق من كوماند /delete
+  // 🔹 التحقق من كوماند /delete للمدير
   if (text.startsWith("/delete") && username === ADMIN_NAME) {
     await remove(messagesRef);
     chatBox.innerHTML = "";
