@@ -99,18 +99,28 @@ onValue(usersRef, snapshot => {
   });
 });
 
-// 🔹 إرسال الرسائل
+// 🔹 إرسال الرسائل + دعم كوماند /delete
 const form = document.getElementById("chatForm");
 const msgInput = document.getElementById("msg");
 const chatBox = document.getElementById("chat");
 const typingBox = document.getElementById("typing");
 
-form.addEventListener("submit", e => {
+form.addEventListener("submit", async e => {
   e.preventDefault();
-  const text = msgInput.value.trim();
+  let text = msgInput.value.trim();
   if (!text) return;
+
+  // 🔹 التحقق من كوماند /delete
+  if (text.startsWith("/delete") && username === ADMIN_NAME) {
+    await remove(messagesRef);
+    chatBox.innerHTML = "";
+    msgInput.value = "";
+    alert("✅ تم حذف جميع الرسائل بواسطة المدير!");
+    return;
+  }
+
   const msgRef = push(messagesRef);
-  set(msgRef, { user: username, color: userColor, text, time: new Date().toLocaleTimeString() });
+  await set(msgRef, { user: username, color: userColor, text, time: new Date().toLocaleTimeString() });
   msgInput.value = "";
   remove(ref(db, "typing/" + userId));
 });
@@ -137,24 +147,6 @@ onValue(typingRef, snapshot => {
   const names = Object.values(typingUsers).map(u => u.name).filter(n => n !== username);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
-
-// 🔹 زر حذف الرسائل للمدير
-if (username === ADMIN_NAME) {
-  const delBtn = document.createElement("button");
-  delBtn.textContent = "🧹 حذف كل الرسائل";
-  delBtn.style.background = "#ff595e";
-  delBtn.style.color = "#fff";
-  delBtn.style.fontWeight = "bold";
-  delBtn.style.margin = "10px";
-  delBtn.onclick = async () => {
-    if (confirm("هل تريد حذف جميع الرسائل؟")) {
-      await remove(messagesRef);
-      chatBox.innerHTML = "";
-      alert("✅ تم حذف جميع الرسائل!");
-    }
-  };
-  document.body.insertBefore(delBtn, document.getElementById("chat"));
-}
 </script>
 
 <style>
