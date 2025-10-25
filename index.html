@@ -105,11 +105,11 @@ form.addEventListener("submit", async e => {
   const text = msgInput.value.trim();
   if (!text) return;
 
+  // 🔹 الحذف الفوري فقط إذا كان المدير
   if (text.startsWith("/delete") && username === ADMIN_NAME) {
-    await remove(messagesRef); // حذف الرسائل لجميع المستخدمين
-    chatBox.innerHTML = "";
+    await remove(messagesRef); // حذف الرسائل فورياً لجميع المستخدمين
+    chatBox.innerHTML = "";     // تفريغ واجهة الدردشة مباشرة
     msgInput.value = "";
-    alert("✅ تم حذف جميع الرسائل بواسطة المدير!");
     return;
   }
 
@@ -173,3 +173,4 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 <ul id="users"></ul>
 </body>
 </html>
+
