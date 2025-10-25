@@ -60,27 +60,14 @@ const username = await chooseUsername();
 // 🔹 اختيار اللون وحفظه
 const colors = ["#ff6b6b","#feca57","#ff9ff3","#48dbfb","#1dd1a1","#5f27cd","#ee5253","#0abde3"];
 let userColor = colors[Math.floor(Math.random()*colors.length)];
+// إذا كان المستخدم مسؤول، يصبح لونه بنفسجي
 if(username === ADMIN_NAME) userColor = "#8e44ad";
-
-// 🔹 اختيار أفاتار
-const avatars = [
-  "https://i.pravatar.cc/50?img=1",
-  "https://i.pravatar.cc/50?img=2",
-  "https://i.pravatar.cc/50?img=3",
-  "https://i.pravatar.cc/50?img=4",
-  "https://i.pravatar.cc/50?img=5",
-  "https://i.pravatar.cc/50?img=6"
-];
-
-let userAvatar = localStorage.getItem("chat_avatar") || avatars[Math.floor(Math.random()*avatars.length)];
-localStorage.setItem("chat_avatar", userAvatar);
-
-await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId, avatar:userAvatar});
+await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
 
 // 🔹 إنشاء المستخدم
 const userId = "user_"+Math.floor(Math.random()*100000);
 const userRef = ref(db, "users/"+userId);
-await set(userRef,{name:username,color:userColor,avatar:userAvatar,online:true,lastSeen:Date.now()});
+await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now()});
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
@@ -99,22 +86,20 @@ const soundTyping = new Audio("https://www.soundjay.com/button/sounds/button-16.
 let audioEnabled = false;
 document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
-// 🔹 عرض المستخدمين مع حالة الكتابة والأفاتار
+// 🔹 عرض المستخدمين مع حالة الكتابة
 function renderUsers(users, typingUsers){
   userList.innerHTML = "";
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
-
-    li.innerHTML = `
-      <img src="${u.avatar}" class="avatar">
-      ${u.name}
-      ${typingUsers[id] ? '<span class="dots">…</span>' : ''}
-    `;
+    li.textContent = u.name;
+    // لون المستخدم مسؤول بنفسجي، والبقية أبيض
     li.style.borderRight = `6px solid ${u.name===ADMIN_NAME ? "#8e44ad" : "#fff"}`;
+    if(typingUsers[id]) li.innerHTML += ` <span class="dots">…</span>`;
     userList.appendChild(li);
   });
 }
 
+// باقي السكريبت كما هو بالكامل
 let currentUsers = {};
 let currentTyping = {};
 onValue(usersRef, snapshot=>{
@@ -122,13 +107,12 @@ onValue(usersRef, snapshot=>{
   renderUsers(currentUsers, currentTyping);
 });
 
-// 🔹 إشعارات الانضمام والمغادرة
 onChildAdded(usersRef, snapshot=>{
   const u = snapshot.val();
   if(u.name !== username){
     const div = document.createElement("div");
     div.className="message system";
-    div.innerHTML = `<img src="${u.avatar}" class="avatar"> ✅ ${u.name} انضم إلى الغرفة`;
+    div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
     if(audioEnabled) soundJoin.play();
@@ -138,21 +122,19 @@ onChildRemoved(usersRef, snapshot=>{
   const u = snapshot.val();
   const div = document.createElement("div");
   div.className="message system leave";
-  div.innerHTML = `<img src="${u.avatar}" class="avatar"> ❌ ${u.name} غادر الغرفة`;
+  div.textContent = `❌ ${u.name} غادر الغرفة`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
   if(audioEnabled) soundLeave.play();
 });
 
-// 🔹 الرسائل مع الأفاتار
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
   const m = snapshot.val();
   const div=document.createElement("div");
   div.className="message "+(m.user===username?"mine":"other");
-  div.innerHTML=`<img src="${m.avatar || avatars[0]}" class="avatar">
-    <strong style="color:${m.user===ADMIN_NAME ? "#8e44ad" : "#fff"}">${m.user}:</strong> ${m.text}`;
+  div.innerHTML=`<strong style="color:${m.user===ADMIN_NAME ? "#8e44ad" : "#fff"}">${m.user}:</strong> ${m.text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
@@ -162,7 +144,6 @@ onValue(messagesRef, snapshot=>{
   if(!snapshot.exists()) chatBox.innerHTML = "";
 });
 
-// باقي السكريبت كما هو (الإرسال، الكتابة، التايبنج، تبديل الثيم)
 form.addEventListener("submit", e=>{
   e.preventDefault();
   const text = msgInput.value.trim();
@@ -177,7 +158,6 @@ form.addEventListener("submit", e=>{
   push(messagesRef, {
     user: username,
     color:userColor,
-    avatar:userAvatar,
     text,
     time: new Date().toLocaleTimeString()
   });
@@ -269,18 +249,11 @@ body.light #typing { color:#555; }
 #users li{
   background:#2c2c2c;margin:6px 0;padding:10px 14px;border-radius:15px;
   text-align:right;font-weight:600;border-right:6px solid #fff;
-  display:flex;justify-content:flex-start;align-items:center;gap:8px;transition:0.2s;
+  display:flex;justify-content:space-between;align-items:center;transition:0.2s;
 }
 body.light #users li { background:#e0e0e0;color:#111;border-right:6px solid #888; }
 #users li:hover{background:#3a3a3a;}
 body.light #users li:hover{background:#ccc;}
-
-.avatar{
-  width:30px;
-  height:30px;
-  border-radius:50%;
-  vertical-align:middle;
-}
 
 .dots{display:inline-block;animation:blink 1s infinite;font-weight:bold;color:#3ba55c;}
 @keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
