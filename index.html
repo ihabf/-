@@ -33,6 +33,25 @@
     const chatRef = ref(db, "chat");
     const typingRef = ref(db, "typing");
 
+    // ✅ مراقبة عامة لحذف كل البيانات عند عدم وجود مستخدمين
+    async function cleanupIfEmpty() {
+      try {
+        const res = await fetch(`${firebaseConfig.databaseURL}/users.json`);
+        const data = await res.json();
+        if (!data || Object.keys(data).length === 0) {
+          console.log("🚮 لا يوجد أي مستخدم متصل — حذف جميع البيانات الآن...");
+          await fetch(`${firebaseConfig.databaseURL}.json`, {
+            method: "DELETE"
+          });
+        }
+      } catch (err) {
+        console.error("❌ فشل التحقق من المستخدمين:", err);
+      }
+    }
+
+    // فحص كل 10 ثوانٍ
+    setInterval(cleanupIfEmpty, 10000);
+
     // 🔹 إنشاء هوية المستخدم
     const userId = "user_" + Math.floor(Math.random() * 100000);
     let username = prompt("اكتب اسمك:")?.trim() || "مجهول";
@@ -58,17 +77,6 @@
         li.style.borderRight = `6px solid ${u.color}`;
         userList.appendChild(li);
       });
-
-      // ✅ حذف جميع البيانات عندما لا يبقى أي مستخدم
-      if (Object.keys(users).length === 0) {
-        console.log("🚮 لا يوجد مستخدمون متصلون — حذف جميع البيانات...");
-        setTimeout(() => {
-          set(messagesRef, null);
-          set(usersRef, null);
-          set(chatRef, null);
-          set(typingRef, null);
-        }, 1500);
-      }
     });
 
     // 🔹 إرسال الرسائل
