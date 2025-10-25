@@ -1,15 +1,19 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <title>دردشة مؤقتة</title>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getDatabase, ref, push, set, remove, onValue, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+    import {
+      getDatabase, ref, push, set, remove, onValue, onChildAdded,
+      onDisconnect, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
     // إعداد Firebase
     const firebaseConfig = {
-      apiKey: "AIzaSy...",
+      apiKey: "AIzaSy...", // ⚠️ ضع بياناتك هنا
       authDomain: "example.firebaseapp.com",
       databaseURL: "https://example-default-rtdb.firebaseio.com",
       projectId: "example",
@@ -25,20 +29,20 @@
     const usersRef = ref(db, "users");
     const messagesRef = ref(db, "messages");
 
-    // 🔹 توليد معرف المستخدم
+    // توليد معرف المستخدم وطلب الاسم
     const userId = "user_" + Math.floor(Math.random() * 100000);
+    let username = prompt("اكتب اسمك:")?.trim() || "مجهول";
 
-    // 🔹 طلب اسم المستخدم
-    let username = prompt("اكتب اسمك:") || "مجهول";
+    // اختيار لون عشوائي للمستخدم
+    const colors = ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff", "#a0c4ff", "#bdb2ff", "#ffc6ff"];
+    const userColor = colors[Math.floor(Math.random() * colors.length)];
 
-    // 🔹 إنشاء سجل المستخدم في قاعدة البيانات
+    // إنشاء سجل المستخدم
     const userRef = ref(db, "users/" + userId);
-    set(userRef, { name: username, joinedAt: serverTimestamp() });
-
-    // 🔹 إزالة المستخدم عند الخروج
+    set(userRef, { name: username, color: userColor, joinedAt: serverTimestamp() });
     onDisconnect(userRef).remove();
 
-    // 🔹 مراقبة عدد المستخدمين
+    // مراقبة المستخدمين
     onValue(usersRef, (snapshot) => {
       const users = snapshot.val() || {};
       const userList = document.getElementById("users");
@@ -46,25 +50,29 @@
       Object.values(users).forEach((u) => {
         const li = document.createElement("li");
         li.textContent = u.name;
+        li.style.borderRight = `6px solid ${u.color}`;
         userList.appendChild(li);
       });
 
-      // 🧹 إذا لم يبق أي مستخدم، احذف الشات تلقائيًا
+      // حذف الشات إذا لم يبق أي مستخدم
       if (Object.keys(users).length === 0) {
         set(messagesRef, null);
       }
     });
 
-    // 🔹 إرسال رسالة جديدة
+    // إرسال رسالة
     const form = document.getElementById("chatForm");
+    const msgInput = document.getElementById("msg");
+    const chatBox = document.getElementById("chat");
+
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      const msgInput = document.getElementById("msg");
       const text = msgInput.value.trim();
-      if (text !== "") {
+      if (text) {
         const msgRef = push(messagesRef);
         set(msgRef, {
           user: username,
+          color: userColor,
           text,
           time: new Date().toLocaleTimeString()
         });
@@ -72,30 +80,98 @@
       }
     });
 
-    // 🔹 عرض الرسائل في الصفحة
-    onValue(messagesRef, (snapshot) => {
-      const messages = snapshot.val() || {};
-      const chatBox = document.getElementById("chat");
-      chatBox.innerHTML = "";
-      Object.values(messages).forEach((m) => {
-        const div = document.createElement("div");
-        div.textContent = `${m.user}: ${m.text}`;
-        chatBox.appendChild(div);
-      });
+    // عرض الرسائل بشكل حي (onChildAdded أسرع من onValue)
+    onChildAdded(messagesRef, (snapshot) => {
+      const m = snapshot.val();
+      const div = document.createElement("div");
+      div.className = "message";
+      div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight; // تمرير تلقائي للأسفل
     });
   </script>
 
   <style>
-    body { font-family: sans-serif; background: #111; color: #eee; direction: rtl; text-align: center; }
-    #chat { height: 200px; overflow-y: auto; border: 1px solid #444; padding: 10px; margin: 10px auto; width: 90%; background: #222; }
-    #users { list-style: none; padding: 0; }
-    #users li { background: #333; margin: 5px; padding: 5px; border-radius: 5px; }
-    form { margin-top: 10px; }
-    input { padding: 5px; border-radius: 5px; border: none; }
+    body {
+      font-family: "Cairo", sans-serif;
+      background: #0e0e0e;
+      color: #eee;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    h2 { color: #ffd166; margin: 15px 0; }
+
+    #chat {
+      height: 250px;
+      overflow-y: auto;
+      border: 1px solid #333;
+      padding: 10px;
+      margin: 10px auto;
+      width: 90%;
+      background: #1b1b1b;
+      border-radius: 10px;
+      text-align: left;
+    }
+
+    .message {
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    form {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      margin: 10px auto;
+    }
+
+    input {
+      width: 70%;
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      outline: none;
+      background: #222;
+      color: #eee;
+    }
+
+    button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      background: #06d6a0;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #04b48a;
+    }
+
+    #users {
+      list-style: none;
+      padding: 0;
+      margin: 15px auto;
+      width: 50%;
+    }
+
+    #users li {
+      background: #222;
+      margin: 5px 0;
+      padding: 6px;
+      border-radius: 6px;
+      text-align: right;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
-  <h2>دردشة مؤقتة</h2>
+  <h2>💬 دردشة مؤقتة</h2>
+
   <div id="chat"></div>
 
   <form id="chatForm">
