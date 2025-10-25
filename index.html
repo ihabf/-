@@ -1,212 +1,184 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>💬 دردشة مؤقتة</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💬 دردشة مؤقتة</title>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import {
-      getDatabase, ref, push, set, remove, onValue, onChildAdded,
-      onDisconnect, get, update
-    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-    // 🔹 إعدادات Firebase
-    const firebaseConfig = {
-      apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
-      authDomain: "kelta-gmae.firebaseapp.com",
-      databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
-      projectId: "kelta-gmae",
-      storageBucket: "kelta-gmae.firebasestorage.app",
-      messagingSenderId: "247464874751",
-      appId: "1:247464874751:web:779a3120e6b422fdee72ca",
-      measurementId: "G-6C8HGRKLHS"
-    };
+// 🔹 إعداد Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
+  authDomain: "kelta-gmae.firebaseapp.com",
+  databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
+  projectId: "kelta-gmae",
+  storageBucket: "kelta-gmae.firebasestorage.app",
+  messagingSenderId: "247464874751",
+  appId: "1:247464874751:web:779a3120e6b422fdee72ca",
+  measurementId: "G-6C8HGRKLHS"
+};
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-    // 🔹 المراجع في قاعدة البيانات
-    const usersRef = ref(db, "users");
-    const messagesRef = ref(db, "messages");
-    const chatRef = ref(db, "chat");
-    const typingRef = ref(db, "typing");
-    const savedUsersRef = ref(db, "savedUsers");
+const usersRef = ref(db, "users");
+const messagesRef = ref(db, "messages");
+const typingRef = ref(db, "typing");
+const savedUsersRef = ref(db, "savedUsers");
 
-    // 🔹 إنشاء مستخدم
-    const username = prompt("اكتب اسمك:")?.trim() || "مجهول";
-    const userId = "user_" + Math.floor(Math.random() * 100000);
-    const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
-    let userColor = colors[Math.floor(Math.random() * colors.length)];
+const ADMIN_NAME = "KeltA"; // اسم المدير
 
-    // 🔸 فحص إن كان هذا الاسم محفوظ مسبقًا
-    const savedSnap = await get(savedUsersRef);
-    const savedData = savedSnap.val() || {};
-    if (savedData[username]) {
-      userColor = savedData[username].color;
-      console.log(`🎨 تم استرجاع اللون القديم للمستخدم ${username}`);
-    } else {
-      // حفظ اللون الجديد
-      await set(ref(db, "savedUsers/" + username), { color: userColor });
+// 🔹 اختيار الاسم مع منع التكرار
+async function chooseUsername() {
+  let username = localStorage.getItem("chat_username");
+  let valid = false;
+  while (!valid) {
+    if (!username) username = prompt("اكتب اسمك:")?.trim() || "مجهول";
+
+    const usersSnap = await get(usersRef);
+    const usersData = usersSnap.val() || {};
+    const nameTaken = Object.values(usersData).some(u => u.name === username);
+
+    if (nameTaken) {
+      alert("❌ هذا الاسم مستخدم بالفعل! اختر اسمًا آخر.");
+      username = null;
+    } else valid = true;
+  }
+  localStorage.setItem("chat_username", username);
+  return username;
+}
+
+const username = await chooseUsername();
+
+// 🔹 اختيار اللون
+const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
+let userColor = colors[Math.floor(Math.random() * colors.length)];
+
+// استرجاع اللون إذا محفوظ
+const savedSnap = await get(savedUsersRef);
+const savedData = savedSnap.val() || {};
+if (savedData[username]) userColor = savedData[username].color;
+else await set(ref(db, "savedUsers/" + username), { color: userColor });
+
+// 🔹 تسجيل المستخدم
+const userId = "user_" + Math.floor(Math.random() * 100000);
+const userRef = ref(db, "users/" + userId);
+await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now() });
+onDisconnect(userRef).remove();
+
+// تحديث الحالة كل 5 ثوانٍ
+setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
+
+// 🔹 تنظيف الغرفة إذا فارغة
+async function cleanupIfEmpty() {
+  const snapshot = await get(usersRef);
+  const users = snapshot.val() || {};
+  const now = Date.now();
+  const activeUsers = Object.values(users).filter(u => now - (u.lastSeen||0) < 10000);
+  if (activeUsers.length === 0) {
+    const messagesSnap = await get(messagesRef);
+    if (messagesSnap.exists()) messagesSnap.forEach(c => remove(ref(db, "messages/" + c.key)));
+    await Promise.all([remove(usersRef), remove(typingRef)]);
+  }
+}
+setInterval(cleanupIfEmpty, 10000);
+
+// 🔹 عرض المستخدمين
+onValue(usersRef, snapshot => {
+  const users = snapshot.val() || {};
+  const userList = document.getElementById("users");
+  userList.innerHTML = "";
+  Object.values(users).forEach(u => {
+    const li = document.createElement("li");
+    li.textContent = u.name;
+    li.style.borderRight = `6px solid ${u.color}`;
+    userList.appendChild(li);
+  });
+});
+
+// 🔹 إرسال الرسائل
+const form = document.getElementById("chatForm");
+const msgInput = document.getElementById("msg");
+const chatBox = document.getElementById("chat");
+const typingBox = document.getElementById("typing");
+
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  const text = msgInput.value.trim();
+  if (!text) return;
+  const msgRef = push(messagesRef);
+  set(msgRef, { user: username, color: userColor, text, time: new Date().toLocaleTimeString() });
+  msgInput.value = "";
+  remove(ref(db, "typing/" + userId));
+});
+
+// عرض الرسائل الجديدة
+onChildAdded(messagesRef, snapshot => {
+  const m = snapshot.val();
+  const div = document.createElement("div");
+  div.className = "message";
+  div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+// "يكتب الآن"
+msgInput.addEventListener("input", () => {
+  set(ref(db, "typing/" + userId), { name: username });
+  clearTimeout(window.typingTimeout);
+  window.typingTimeout = setTimeout(() => remove(ref(db, "typing/" + userId)), 2000);
+});
+
+onValue(typingRef, snapshot => {
+  const typingUsers = snapshot.val() || {};
+  const names = Object.values(typingUsers).map(u => u.name).filter(n => n !== username);
+  typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
+});
+
+// 🔹 زر حذف الرسائل للمدير
+if (username === ADMIN_NAME) {
+  const delBtn = document.createElement("button");
+  delBtn.textContent = "🧹 حذف كل الرسائل";
+  delBtn.style.background = "#ff595e";
+  delBtn.style.color = "#fff";
+  delBtn.style.fontWeight = "bold";
+  delBtn.style.margin = "10px";
+  delBtn.onclick = async () => {
+    if (confirm("هل تريد حذف جميع الرسائل؟")) {
+      await remove(messagesRef);
+      chatBox.innerHTML = "";
+      alert("✅ تم حذف جميع الرسائل!");
     }
+  };
+  document.body.insertBefore(delBtn, document.getElementById("chat"));
+}
+</script>
 
-    // 🔹 تسجيل المستخدم في قاعدة البيانات
-    const userRef = ref(db, "users/" + userId);
-    await set(userRef, {
-      name: username,
-      color: userColor,
-      online: true,
-      lastSeen: Date.now()
-    });
-
-    // 🔹 تحديث حالة المستخدم كل 5 ثوانٍ
-    setInterval(() => {
-      update(userRef, { online: true, lastSeen: Date.now() });
-    }, 5000);
-
-    // 🔹 عند مغادرة المستخدم
-    onDisconnect(userRef).remove();
-
-    // 🔹 حذف البيانات إن لم يبقَ أحد متصل فعليًا
-    async function cleanupIfEmpty() {
-      const snapshot = await get(usersRef);
-      const users = snapshot.val() || {};
-      const now = Date.now();
-
-      // المستخدمون النشطون فقط خلال آخر 10 ثوانٍ
-      const activeUsers = Object.values(users).filter(u => now - (u.lastSeen || 0) < 10000);
-
-      if (activeUsers.length === 0) {
-        console.log("🚮 لا يوجد أي مستخدم نشط — بدء التنظيف...");
-
-        // حذف كل الرسائل
-        const messagesSnap = await get(messagesRef);
-        if (messagesSnap.exists()) {
-          messagesSnap.forEach(child => {
-            remove(ref(db, "messages/" + child.key));
-          });
-          console.log("🧹 تم حذف كل الرسائل بنجاح");
-        } else {
-          console.log("📭 لا توجد رسائل لحذفها");
-        }
-
-        // حذف باقي الفروع
-        await Promise.all([
-          remove(chatRef),
-          remove(typingRef),
-          remove(usersRef)
-        ]);
-
-        console.log("✅ تم تنظيف باقي البيانات (chat / typing / users)");
-      } else {
-        console.log(`👥 عدد المستخدمين النشطين: ${activeUsers.length}`);
-      }
-    }
-
-    // 🔹 فحص كل 10 ثوانٍ
-    setInterval(cleanupIfEmpty, 10000);
-
-    // 🔹 عرض المستخدمين المتصلين
-    onValue(usersRef, (snapshot) => {
-      const users = snapshot.val() || {};
-      const userList = document.getElementById("users");
-      userList.innerHTML = "";
-      Object.values(users).forEach(u => {
-        const li = document.createElement("li");
-        li.textContent = u.name;
-        li.style.borderRight = `6px solid ${u.color}`;
-        userList.appendChild(li);
-      });
-    });
-
-    // 🔹 إرسال الرسائل
-    const form = document.getElementById("chatForm");
-    const msgInput = document.getElementById("msg");
-    const chatBox = document.getElementById("chat");
-    const typingBox = document.getElementById("typing");
-
-    form.addEventListener("submit", e => {
-      e.preventDefault();
-      const text = msgInput.value.trim();
-      if (!text) return;
-      const msgRef = push(messagesRef);
-      set(msgRef, {
-        user: username,
-        color: userColor,
-        text,
-        time: new Date().toLocaleTimeString()
-      });
-      msgInput.value = "";
-      remove(ref(db, "typing/" + userId));
-    });
-
-    // 🔹 عرض الرسائل الجديدة
-    onChildAdded(messagesRef, snapshot => {
-      const m = snapshot.val();
-      const div = document.createElement("div");
-      div.className = "message";
-      div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-      chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    });
-
-    // 🔹 عرض "يكتب الآن..."
-    msgInput.addEventListener("input", () => {
-      set(ref(db, "typing/" + userId), { name: username });
-      clearTimeout(window.typingTimeout);
-      window.typingTimeout = setTimeout(() => {
-        remove(ref(db, "typing/" + userId));
-      }, 2000);
-    });
-
-    onValue(typingRef, snapshot => {
-      const typingUsers = snapshot.val() || {};
-      const names = Object.values(typingUsers)
-        .map(u => u.name)
-        .filter(n => n !== username);
-      typingBox.textContent = names.length
-        ? `${names.join(" و ")} ${names.length > 1 ? "يكتبون الآن..." : "يكتب الآن..."}`
-        : "";
-    });
-  </script>
-
-  <style>
-    body {
-      font-family: "Cairo", sans-serif;
-      background: #0e0e0e;
-      color: #eee;
-      margin: 0;
-      padding: 0;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      height: 100vh;
-    }
-    h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
-    #chat {
-      flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;
-      padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box;
-    }
-    .message{margin-bottom:6px;line-height:1.4;word-wrap:break-word;}
-    form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
-    input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
-    button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
-    #typing{font-size:14px;color:#aaa;margin:5px;min-height:18px;}
-    #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
-    #users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;}
-  </style>
+<style>
+body { font-family: "Cairo", sans-serif; background:#0e0e0e; color:#eee; margin:0; padding:0; text-align:center; display:flex; flex-direction:column; align-items:center; height:100vh; }
+h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
+#chat { flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box;}
+.message{margin-bottom:6px;line-height:1.4;word-wrap:break-word;}
+form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
+input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
+button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
+#typing{font-size:14px;color:#aaa;margin:5px;min-height:18px;}
+#users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
+#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;}
+</style>
 </head>
 <body>
-  <h2>💬 دردشة مؤقتة</h2>
-  <div id="chat"></div>
-  <div id="typing"></div>
-  <form id="chatForm">
-    <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
-    <button>إرسال</button>
-  </form>
-  <h3>المتصلون الآن:</h3>
-  <ul id="users"></ul>
+<h2>💬 دردشة مؤقتة</h2>
+<div id="chat"></div>
+<div id="typing"></div>
+<form id="chatForm">
+  <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
+  <button>إرسال</button>
+</form>
+<h3>المتصلون الآن:</h3>
+<ul id="users"></ul>
 </body>
 </html>
