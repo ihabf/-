@@ -38,7 +38,7 @@ if (!deviceId) {
   localStorage.setItem("chat_device_id", deviceId);
 }
 
-// 🔹 اختيار الاسم
+// 🔹 اختيار اسم المستخدم
 async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
   const savedSnap = await get(savedUsersRef);
@@ -122,15 +122,11 @@ form.addEventListener("submit", async e => {
 // 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 onChildAdded(messagesRef, snapshot => {
   const m = snapshot.val();
-  // تجاهل الرسائل القديمة، عرض الرسائل القادمة فقط
-  if (!m._seen) {
-    m._seen = true; // علامة مؤقتة للمستخدم الحالي
-    const div = document.createElement("div");
-    div.className = "message";
-    div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
+  const div = document.createElement("div");
+  div.className = "message";
+  div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 // 🔹 الكتابة الحية
