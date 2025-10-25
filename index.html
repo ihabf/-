@@ -7,7 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -78,7 +78,7 @@ await set(userRef, { name: username, color: userColor, online: true, lastSeen: D
 onDisconnect(userRef).remove();
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-// 🔹 الشات يكون فارغ عند الدخول
+// 🔹 عناصر الصفحة
 const chatBox = document.getElementById("chat");
 chatBox.innerHTML = "";
 
@@ -119,13 +119,16 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
-// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
-onChildAdded(messagesRef, snapshot => {
-  const m = snapshot.val();
-  const div = document.createElement("div");
-  div.className = "message";
-  div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-  chatBox.appendChild(div);
+// 🔹 تحديث الشات تلقائيًا عند أي تغيير (حذف أو إضافة)
+onValue(messagesRef, snapshot => {
+  const msgs = snapshot.val() || {};
+  chatBox.innerHTML = ""; // إفراغ الشات قبل عرض الجديد
+  Object.values(msgs).forEach(m => {
+    const div = document.createElement("div");
+    div.className = "message";
+    div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+    chatBox.appendChild(div);
+  });
   chatBox.scrollTop = chatBox.scrollHeight;
 });
 
