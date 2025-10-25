@@ -31,7 +31,7 @@ const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA";
 
-// 🔹 إنشاء معرف فريد للجهاز
+// 🔹 معرف فريد للجهاز
 let deviceId = localStorage.getItem("chat_device_id") || "dev_" + Math.floor(Math.random()*1e9);
 localStorage.setItem("chat_device_id", deviceId);
 
@@ -75,8 +75,10 @@ const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 
-// 🔹 صوت الانضمام
-const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3"); // رابط صوت تنبيه
+// 🔹 صوت الانضمام (يعمل بعد أول تفاعل)
+const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3");
+let audioEnabled = false;
+document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
 // 🔹 عرض المستخدمين
 onValue(usersRef, snapshot=>{
@@ -91,10 +93,10 @@ onValue(usersRef, snapshot=>{
   });
 });
 
-// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
+// 🔹 استقبال الرسائل الجديدة بعد دخول المستخدم
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
-  if(firstLoad) return; // تجاهل الرسائل القديمة عند الدخول
+  if(firstLoad) return;
   const m = snapshot.val();
   const div=document.createElement("div");
   div.className="message";
@@ -102,8 +104,6 @@ onChildAdded(messagesRef, snapshot=>{
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
-
-// إعادة تفعيل firstLoad بعد تحميل الرسائل القديمة
 get(messagesRef).then(()=>{ firstLoad=false; });
 
 // 🔹 تحديث فوري عند حذف الرسائل
@@ -130,7 +130,7 @@ onChildAdded(usersRef, snapshot=>{
     div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
-    joinSound.play();
+    if(audioEnabled) joinSound.play();
   }
 });
 
@@ -151,7 +151,6 @@ form.addEventListener("submit", async e=>{
   const text=msgInput.value.trim();
   if(!text) return;
 
-  // حذف الرسائل لجميع المستخدمين
   if(text.startsWith("/delete") && username===ADMIN_NAME){
     await remove(messagesRef);
     msgInput.value="";
@@ -165,19 +164,26 @@ form.addEventListener("submit", async e=>{
 });
 
 // 🔹 الكتابة الحية محسنة
+let typingTimers = {};
 msgInput.addEventListener("input", ()=>{
-  set(ref(db,"typing/"+userId),{name:username});
-  clearTimeout(window.typingTimeout);
-  window.typingTimeout=setTimeout(()=>remove(ref(db,"typing/"+userId)),1500);
+  set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
 });
 
-onValue(typingRef,snapshot=>{
+onValue(typingRef, snapshot=>{
   const typingUsers = snapshot.val() || {};
-  const names = Object.values(typingUsers).map(u=>u.name).filter(n=>n!==username);
+  const now = Date.now();
+  const names=[];
+  Object.entries(typingUsers).forEach(([id,u])=>{
+    if(u.name !== username && now - u.ts < 2500){
+      names.push(u.name);
+    }else{
+      remove(ref(db,"typing/"+id));
+    }
+  });
   if(names.length){
     typingBox.innerHTML = `<em style="color:#ffd166;">${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}</em>`;
   }else{
-    typingBox.innerHTML = "";
+    typingBox.innerHTML="";
   }
 });
 </script>
