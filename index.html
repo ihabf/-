@@ -30,8 +30,8 @@
     // 🔹 المراجع
     const usersRef = ref(db, "users");
     const messagesRef = ref(db, "messages");
-    const typingRef = ref(db, "typing");
     const chatRef = ref(db, "chat");
+    const typingRef = ref(db, "typing");
 
     // 🔹 إنشاء هوية المستخدم
     const userId = "user_" + Math.floor(Math.random() * 100000);
@@ -41,13 +41,13 @@
     const colors = ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff", "#a0c4ff", "#bdb2ff", "#ffc6ff"];
     const userColor = colors[Math.floor(Math.random() * colors.length)];
 
-    // 🔹 تسجيل المستخدم
+    // 🔹 تسجيل المستخدم في القاعدة
     const userRef = ref(db, "users/" + userId);
     set(userRef, { name: username, color: userColor, joinedAt: serverTimestamp() });
     onDisconnect(userRef).remove();
 
     // 🔹 مراقبة المستخدمين
-    onValue(usersRef, async (snapshot) => {
+    onValue(usersRef, (snapshot) => {
       const users = snapshot.val() || {};
       const userList = document.getElementById("users");
       userList.innerHTML = "";
@@ -59,18 +59,15 @@
         userList.appendChild(li);
       });
 
-      // ✅ إذا لم يبقَ أي مستخدم، نحذف جميع البيانات تمامًا
+      // ✅ حذف جميع البيانات عندما لا يبقى أي مستخدم
       if (Object.keys(users).length === 0) {
-        console.warn("🚮 لا يوجد مستخدمون متصلون، يتم تنظيف البيانات...");
-        try {
-          await remove(messagesRef);
-          await remove(chatRef);
-          await remove(typingRef);
-          await remove(usersRef);
-          console.log("✅ تم حذف جميع بيانات الغرفة بنجاح.");
-        } catch (err) {
-          console.error("⚠️ فشل الحذف:", err);
-        }
+        console.log("🚮 لا يوجد مستخدمون متصلون — حذف جميع البيانات...");
+        setTimeout(() => {
+          set(messagesRef, null);
+          set(usersRef, null);
+          set(chatRef, null);
+          set(typingRef, null);
+        }, 1500);
       }
     });
 
@@ -96,7 +93,7 @@
       }
     });
 
-    // 🔹 عرض الرسائل الجديدة فور وصولها
+    // 🔹 عرض الرسائل فور وصولها
     onChildAdded(messagesRef, (snapshot) => {
       const m = snapshot.val();
       const div = document.createElement("div");
@@ -106,7 +103,7 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     });
 
-    // 🔹 "يكتب الآن..."
+    // 🔹 ميزة "يكتب الآن..."
     msgInput.addEventListener("input", () => {
       set(ref(db, "typing/" + userId), { name: username });
       clearTimeout(window.typingTimeout);
@@ -115,7 +112,7 @@
       }, 2000);
     });
 
-    // 🔹 عرض حالة الكتابة
+    // 🔹 عرض من يكتب الآن
     onValue(typingRef, (snapshot) => {
       const typingUsers = snapshot.val() || {};
       const names = Object.values(typingUsers)
