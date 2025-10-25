@@ -7,7 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -71,15 +71,12 @@ const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bd
 let userColor = colors[Math.floor(Math.random() * colors.length)];
 await set(ref(db, "savedUsers/" + username), { color: userColor, deviceId });
 
-// 🔹 وقت الانضمام
-const joinTime = Date.now();
-
 // 🔹 إنشاء المستخدم في قاعدة البيانات
 const userId = "user_" + Math.floor(Math.random() * 100000);
 const userRef = ref(db, "users/" + userId);
-await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now(), joinTime });
+await set(userRef, { name: username, color: userColor, online: true });
 onDisconnect(userRef).remove();
-setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
+setInterval(() => update(userRef, { online: true }), 5000);
 
 // 🔹 عرض المستخدمين المتصلين
 onValue(usersRef, snapshot => {
@@ -113,15 +110,17 @@ form.addEventListener("submit", async e => {
   }
 
   const msgRef = push(messagesRef);
-  await set(msgRef, { user: username, color: userColor, text, time: Date.now() });
+  await set(msgRef, { user: username, color: userColor, text, timestamp: Date.now() });
   msgInput.value = "";
   remove(ref(db, "typing/" + userId));
 });
 
-// 🔹 عرض الرسائل الجديدة بعد دخول المستخدم فقط
+// 🔹 استقبال الرسائل الجديدة بعد دخول المستخدم
+const initialLoadTime = Date.now(); // وقت دخول المستخدم
+
 onChildAdded(messagesRef, snapshot => {
   const m = snapshot.val();
-  if (m.time >= joinTime) {
+  if (m.timestamp >= initialLoadTime) {
     const div = document.createElement("div");
     div.className = "message";
     div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
