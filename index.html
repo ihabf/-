@@ -24,91 +24,70 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const usersRef = ref(db, "users");
-const messagesRef = ref(db, "messages");
-const typingRef = ref(db, "typing");
+// 🔹 المسارات
+const usersRef = ref(db, "tempUsers");
+const messagesRef = ref(db, "tempMessages");
+const typingRef = ref(db, "tempTyping");
 
-const ADMIN_NAME = "KeltA";
+// 🔹 معرف فريد للجلسة
+const sessionId = "sess_" + Math.floor(Math.random() * 1e9);
 
-// 🔹 معرف فريد للجهاز
-let deviceId = localStorage.getItem("chat_device_id");
-if (!deviceId) {
-  deviceId = "dev_" + Math.floor(Math.random() * 1e9);
-  localStorage.setItem("chat_device_id", deviceId);
-}
+// 🔹 معرف فريد للمستخدم
+const userId = "user_" + Math.floor(Math.random() * 1e9);
 
 // 🔹 اختيار الاسم
-async function chooseUsername() {
-  let username = localStorage.getItem("chat_username");
-  if (!username) {
-    let valid = false;
-    while (!valid) {
-      username = prompt("اكتب اسمك:")?.trim();
-      if (!username) { alert("⚠️ يجب إدخال اسم صالح!"); continue; }
-      valid = true;
-    }
-    localStorage.setItem("chat_username", username);
-  }
-  return username;
+let username = localStorage.getItem("chat_username_temp");
+if (!username) {
+  username = prompt("اكتب اسمك:")?.trim() || "مجهول";
+  localStorage.setItem("chat_username_temp", username);
 }
 
-const username = await chooseUsername();
-
-// 🔹 اختيار لون عشوائي
+// 🔹 اختيار لون
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
-let userColor = colors[Math.floor(Math.random() * colors.length)];
+const userColor = colors[Math.floor(Math.random() * colors.length)];
 
-// 🔹 إنشاء المستخدم في قاعدة البيانات
-const userId = "user_" + Math.floor(Math.random() * 100000);
-const userRef = ref(db, "users/" + userId);
-await set(userRef, { name: username, color: userColor, online: true });
+// 🔹 إضافة المستخدم للقائمة المؤقتة
+const userRef = ref(db, `tempUsers/${userId}`);
+await set(userRef, { name: username, color: userColor, session: sessionId, online: true });
 onDisconnect(userRef).remove();
 setInterval(() => update(userRef, { online: true }), 5000);
 
-// 🔹 عرض المستخدمين المتصلين
+// 🔹 عرض المستخدمين المتصلين بنفس الجلسة
 onValue(usersRef, snapshot => {
-  const users = snapshot.val() || {};
+  const allUsers = snapshot.val() || {};
   const userList = document.getElementById("users");
   userList.innerHTML = "";
-  Object.values(users).forEach(u => {
-    const li = document.createElement("li");
-    li.textContent = u.name;
-    li.style.borderRight = `6px solid ${u.color}`;
-    userList.appendChild(li);
+  Object.values(allUsers).forEach(u => {
+    if(u.session === sessionId){
+      const li = document.createElement("li");
+      li.textContent = u.name;
+      li.style.borderRight = `6px solid ${u.color}`;
+      userList.appendChild(li);
+    }
   });
 });
 
+// 🔹 إرسال الرسائل
 const form = document.getElementById("chatForm");
 const msgInput = document.getElementById("msg");
 const chatBox = document.getElementById("chat");
 const typingBox = document.getElementById("typing");
 
-// 🔹 وقت دخول المستخدم للجلسة الحالية
-const sessionStart = Date.now();
-
-// 🔹 إرسال الرسائل
 form.addEventListener("submit", async e => {
   e.preventDefault();
   const text = msgInput.value.trim();
-  if (!text) return;
-
-  if (text.startsWith("/delete") && username === ADMIN_NAME) {
-    chatBox.innerHTML = "";
-    msgInput.value = "";
-    alert("✅ تم مسح الشات عندك فقط كمدير!");
-    return;
-  }
+  if(!text) return;
 
   const msgRef = push(messagesRef);
-  await set(msgRef, { user: username, color: userColor, text, timestamp: Date.now() });
+  await set(msgRef, { user: username, color: userColor, text, session: sessionId, timestamp: Date.now() });
   msgInput.value = "";
-  remove(ref(db, "typing/" + userId));
+  remove(ref(db, `tempTyping/${userId}`));
 });
 
-// 🔹 استقبال الرسائل الجديدة بعد دخول المستخدم فقط
+// 🔹 استقبال الرسائل الجديدة بنفس الجلسة
 onChildAdded(messagesRef, snapshot => {
   const m = snapshot.val();
-  if (m.timestamp >= sessionStart) {
+  if(m.session === sessionId){
     const div = document.createElement("div");
     div.className = "message";
     div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
@@ -119,14 +98,16 @@ onChildAdded(messagesRef, snapshot => {
 
 // 🔹 الكتابة الحية
 msgInput.addEventListener("input", () => {
-  set(ref(db, "typing/" + userId), { name: username });
+  set(ref(db, `tempTyping/${userId}`), { name: username, session: sessionId });
   clearTimeout(window.typingTimeout);
-  window.typingTimeout = setTimeout(() => remove(ref(db, "typing/" + userId)), 2000);
+  window.typingTimeout = setTimeout(() => remove(ref(db, `tempTyping/${userId}`)), 2000);
 });
 
 onValue(typingRef, snapshot => {
   const typingUsers = snapshot.val() || {};
-  const names = Object.values(typingUsers).map(u => u.name).filter(n => n !== username);
+  const names = Object.values(typingUsers)
+    .filter(u => u.session === sessionId && u.name !== username)
+    .map(u => u.name);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
 </script>
