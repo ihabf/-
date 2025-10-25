@@ -86,14 +86,21 @@ onDisconnect(userRef).remove();
 
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-// 🔹 حذف الشات فورًا عند خروج آخر مستخدم
-onValue(usersRef, async snapshot => {
+// 🔹 تنفيذ /delete تلقائيًا إذا لم يبق أي مستخدم آخر لمدة 5 ثوانٍ
+let emptyTimeout;
+onValue(usersRef, snapshot => {
   const users = snapshot.val() || {};
-  if (Object.keys(users).length === 0) {
-    const messagesSnap = await get(messagesRef);
-    if (messagesSnap.exists()) messagesSnap.forEach(c => remove(ref(db, "messages/" + c.key)));
-    await remove(typingRef);
-    console.log("🧹 تم حذف جميع الرسائل لأن لا مستخدمين نشطين");
+  const otherUsers = Object.keys(users).filter(uid => uid !== userId);
+  
+  clearTimeout(emptyTimeout);
+  if (otherUsers.length === 0) {
+    emptyTimeout = setTimeout(async () => {
+      const messagesSnap = await get(messagesRef);
+      if (messagesSnap.exists()) {
+        messagesSnap.forEach(c => remove(ref(db, "messages/" + c.key)));
+        console.log("🧹 تم حذف جميع الرسائل تلقائيًا لعدم وجود مستخدمين آخرين");
+      }
+    }, 5000); // 5 ثوانٍ انتظار قبل الحذف
   }
 });
 
