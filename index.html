@@ -108,8 +108,12 @@ form.addEventListener("submit", async e => {
   if (text.startsWith("/delete") && username === ADMIN_NAME) {
     await remove(messagesRef); // حذف الرسائل لجميع المستخدمين
     chatBox.innerHTML = "";
+    
+    // إرسال رسالة خاصة لتحديث كل المستخدمين مباشرة
+    const msgRef = push(messagesRef);
+    await set(msgRef, { user: "النظام", color: "#ff5555", text: "✅ تم حذف جميع الرسائل بواسطة المدير!", time: new Date().toLocaleTimeString() });
+
     msgInput.value = "";
-    alert("✅ تم حذف جميع الرسائل بواسطة المدير!");
     return;
   }
 
@@ -119,11 +123,14 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
-// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم + تحديث مباشر
-let firstLoad = true; // لتجاهل الرسائل القديمة عند الدخول
+// 🔹 استقبال الرسائل الجديدة + تحديث مباشر
+let firstLoad = true;
 onChildAdded(messagesRef, snapshot => {
-  if (firstLoad) return; // نتجاهل الرسائل الموجودة مسبقًا
   const m = snapshot.val();
+  if (!m) return;
+
+  // تحديث مباشر للرسائل المحذوفة
+  if (firstLoad) return; // نتجاهل الرسائل القديمة عند الدخول
   const div = document.createElement("div");
   div.className = "message";
   div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
@@ -131,7 +138,6 @@ onChildAdded(messagesRef, snapshot => {
   chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// تفعيل استقبال الرسائل الجديدة بعد قليل من الدخول
 setTimeout(() => { firstLoad = false; }, 500);
 
 // 🔹 الكتابة الحية
