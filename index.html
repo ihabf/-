@@ -213,11 +213,23 @@ h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
 .other {align-self:flex-start; border-top-left-radius:0; border:1px solid #555;}
 .typing-message {font-style:italic;}
 form{width:95%;max-width:600px;display:flex;gap:5px;margin:0 auto; position:fixed; bottom:0; left:50%; transform:translateX(-50%); background:#0e0e0e; padding:10px; border-radius:8px; box-sizing:border-box;}
-input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
+input{
+  flex:1;
+  padding:10px;
+  border-radius:6px;
+  border:none;
+  outline:none;
+  background:#222;
+  color:#eee;
+  font-size:16px;
+  spellcheck:false;       /* تعطيل التدقيق الإملائي */
+  autocorrect:off;        /* تعطيل التصحيح التلقائي */
+  autocapitalize:off;     /* منع تغيير الأحرف تلقائياً */
+  caret-color:#06d6a0;    /* مؤشر الكتابة بارز */
+}
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
 .dots{display:inline-block; font-family: monospace; color:#ffd166; animation:blinkDots 1s linear infinite;}
 @keyframes blinkDots{0%{opacity:0.2;}25%{opacity:0.5;}50%{opacity:1;}75%{opacity:0.5;}100%{opacity:0.2;}}
-
 @media screen and (max-width:600px){
   #chat { max-height:60vh; }
 }
