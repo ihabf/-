@@ -206,7 +206,12 @@ body {
   margin:0; padding:0; display:flex; flex-direction:column;
   align-items:center; height:100vh; transition:0.3s;
 }
-body.light { background: linear-gradient(90deg, #f4f0f4,#45484a); color:#222; }
+
+/* الوضع الصباحي محسّن */
+body.light { 
+  background: linear-gradient(90deg, #fdf6e3,#e0f0ff); 
+  color:#222; 
+}
 
 h2 { color:#48dbfb; margin:15px 0;font-size:1.4em; text-shadow:0 0 5px #48dbfb; }
 #chat {
@@ -214,26 +219,28 @@ h2 { color:#48dbfb; margin:15px 0;font-size:1.4em; text-shadow:0 0 5px #48dbfb; 
   border-radius:12px;padding:12px;background:#242424;
   box-shadow:0 0 15px rgba(0,0,0,0.3); transition:0.3s;
 }
-body.light #chat { background:#f7f7f7; }
+body.light #chat { background:#ffffff; box-shadow:0 0 20px rgba(0,0,0,0.1); }
 
 .message{
   margin-bottom:10px;line-height:1.5;word-wrap:break-word;
   padding:10px 14px;border-radius:18px;max-width:fit-content;
-  background:radial-gradient(at 47.966219997892225% 59.17791208933168%, hsla(195, 8.16%, 19.21%, 1) 0%, hsla(195, 8.16%, 19.21%, 0) 100%),
-             radial-gradient(at 47.649% 82.394%, hsla(0, 6.25%, 18.82%, 1) 0%, hsla(0, 6.25%, 18.82%, 0) 100%),
-             radial-gradient(at 95.492% 30.99%, hsla(135, 5.45%, 43.13%, 1) 0%, hsla(135, 5.45%, 43.13%, 0) 100%),
-             radial-gradient(at 33.06% 63.91%, hsla(196, 8.02%, 36.66%, 1) 0%, hsla(196, 8.02%, 36.66%, 0) 100%),
-             radial-gradient(at 15.14% 8.34%, hsla(195, 8.16%, 19.21%, 1) 0%, hsla(195, 8.16%, 19.21%, 0) 100%);
+  background:radial-gradient(at 47.966% 59.177%, #303030 0%, transparent 100%);
   box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
 }
-body.light .message {
-  background: linear-gradient(90deg, #f4f0f4,#45484a);
+body.light .message { 
+  background: linear-gradient(145deg,#fff,#f0f0f5); 
   color:#222;
 }
 .message.mine { margin-left:auto; color:#fff; }
-body.light .message.mine { color:#fff; }
+body.light .message.mine { 
+  background: linear-gradient(145deg,#a8e6cf,#d0f0c0); 
+  color:#222; 
+}
 .message.other { margin-right:auto; color:#ddd; }
-body.light .message.other { color:#222; }
+body.light .message.other { 
+  background: linear-gradient(145deg,#cce0ff,#e0f0ff); 
+  color:#222; 
+}
 
 .message.system {color:#a3ffad;font-style:italic;font-size:0.95em;text-align:center;background:transparent;box-shadow:none;}
 .message.system.leave {color:#ff7b7b;}
@@ -267,7 +274,11 @@ body.light #typing { color:#555; }
   text-align:right;font-weight:600;border-right:6px solid #1dd1a1;
   display:flex;justify-content:space-between;align-items:center;transition:0.2s;
 }
-body.light #users li { background:#ededed;color:#222;border-right:6px solid #48dbfb; }
+body.light #users li { 
+  background: linear-gradient(145deg,#fdfdfd,#f0f0f5); 
+  color:#222;
+  border-right:6px solid #48dbfb; 
+}
 #users li:hover{background:#3a3a3a;}
 body.light #users li:hover{background:#dcdcdc;}
 
