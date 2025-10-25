@@ -7,7 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -39,7 +39,9 @@ localStorage.setItem("chat_device_id", deviceId);
 async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
   const savedData = (await get(savedUsersRef)).val() || {};
-  if(username && savedData[username]?.deviceId===deviceId) return username;
+  
+  // إذا كان الجهاز مسجّل مسبقاً، استخدم الاسم المسجّل
+  if(username && savedData[username]?.deviceId === deviceId) return username;
 
   let valid=false;
   while(!valid){
@@ -65,12 +67,20 @@ const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bd
 const userColor = colors[Math.floor(Math.random()*colors.length)];
 await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
 
-// 🔹 إنشاء المستخدم
-const userId = "user_"+Math.floor(Math.random()*100000);
-const userRef = ref(db, "users/"+userId);
-await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now()});
-onDisconnect(userRef).remove();
-setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
+// 🔹 إنشاء المستخدم أو إعادة استخدامه إذا موجود
+let userId;
+const existingUserQuery = query(usersRef, orderByChild("deviceId"), equalTo(deviceId));
+const snapshot = await get(existingUserQuery);
+if(snapshot.exists()){
+  userId = Object.keys(snapshot.val())[0];
+  await update(ref(db, "users/"+userId), {online:true,lastSeen:Date.now(), name: username, color: userColor});
+} else {
+  userId = "user_"+Math.floor(Math.random()*100000);
+  const userRef = ref(db, "users/"+userId);
+  await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now()});
+  onDisconnect(userRef).remove();
+  setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
+}
 
 // عناصر الصفحة
 const chatBox=document.getElementById("chat");
@@ -87,7 +97,7 @@ leaveSound.volume = 0.2;
 let audioEnabled = false;
 document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
-// 🔹 عرض المستخدمين (لا يتغير، فقط قائمة الأسماء الجانبية)
+// 🔹 عرض المستخدمين
 function renderUsers(users, typingUsers){
   userList.innerHTML = "";
   Object.entries(users).forEach(([id,u])=>{
@@ -115,8 +125,7 @@ onChildAdded(usersRef, snapshot=>{
   const u = snapshot.val();
   if(u.name !== username){
     const div = document.createElement("div");
-    div.className="message";
-    div.style.fontStyle="italic";
+    div.className="message system";
     div.style.color="#55ff55";
     div.innerHTML = `✅ <strong>${u.name}</strong> انضم إلى الغرفة`;
     chatBox.appendChild(div);
@@ -127,8 +136,7 @@ onChildAdded(usersRef, snapshot=>{
 onChildRemoved(usersRef, snapshot=>{
   const u = snapshot.val();
   const div = document.createElement("div");
-  div.className="message";
-  div.style.fontStyle="italic";
+  div.className="message system";
   div.style.color="#ff5555";
   div.innerHTML = `❌ <strong>${u.name}</strong> غادر الغرفة`;
   chatBox.appendChild(div);
@@ -143,7 +151,7 @@ onChildAdded(messagesRef, snapshot=>{
   const m = snapshot.val();
   const div=document.createElement("div");
   div.className="message";
-  div.innerHTML=`<strong style="color:${m.color}">${m.user}${currentTyping[userId]?" <span class='dots'>…</span>":""}:</strong> ${m.text}`;
+  div.innerHTML=`<strong style="color:${m.color}">${m.user}</strong><span class="bubble">${m.text}</span>`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
@@ -174,7 +182,7 @@ form.addEventListener("submit", async e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-// 🔹 الكتابة الحية مع نقاط متحركة داخل الشات
+// 🔹 الكتابة الحية مع فقاعات صغيرة
 let typingTimeout;
 msgInput.addEventListener("input", ()=>{
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
@@ -193,17 +201,23 @@ onValue(typingRef,snapshot=>{
   });
   renderUsers(currentUsers, currentTyping);
 
-  // عرض الكتابة الحية في الشات بجانب اسم المستخدم
+  // تحديث فقاعات الكتابة الحية داخل الشات
   const messages = chatBox.querySelectorAll(".message");
   messages.forEach(msg=>{
     const usernameInMsg = msg.querySelector("strong");
-    if(!usernameInMsg) return;
-    const userNameText = usernameInMsg.textContent.replace("…","");
-    const isTyping = Object.values(currentUsers).some(u=>currentTyping[userId] && u.name===userNameText);
+    const bubble = msg.querySelector(".bubble");
+    if(!usernameInMsg || !bubble) return;
+    const isTyping = Object.entries(currentTyping).some(([id, val]) => val && currentUsers[id]?.name === usernameInMsg.textContent);
     if(isTyping){
-      usernameInMsg.innerHTML = `${userNameText} <span class='dots'>…</span>`;
+      if(!msg.querySelector(".typingBubble")){
+        const typingSpan = document.createElement("span");
+        typingSpan.className = "typingBubble";
+        typingSpan.textContent = "…";
+        msg.appendChild(typingSpan);
+      }
     } else {
-      usernameInMsg.innerHTML = userNameText;
+      const typingSpan = msg.querySelector(".typingBubble");
+      if(typingSpan) typingSpan.remove();
     }
   });
 
@@ -218,13 +232,16 @@ onValue(typingRef,snapshot=>{
 body { font-family: "Cairo", sans-serif; background:#0e0e0e; color:#eee; margin:0; padding:0; text-align:center; display:flex; flex-direction:column; align-items:center; height:100vh; }
 h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
 #chat { flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box;}
-.message{margin-bottom:6px;line-height:1.4;word-wrap:break-word;display:flex;align-items:center;gap:5px;}
+.message{margin-bottom:6px;line-height:1.4;word-wrap:break-word;display:flex;align-items:center;gap:5px;position:relative;}
+.message.system{font-style:italic;}
 form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
 input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
 #typing{font-size:14px;color:#ffd166;margin:5px;min-height:18px;}
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
 #users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
+.bubble{background:#333;color:#fff;padding:5px 10px;border-radius:15px;max-width:70%;display:inline-block;word-break:break-word;}
+.typingBubble{background:#555;color:#fff;padding:5px 10px;border-radius:15px;margin-left:5px;font-style:italic;}
 .dots{display:inline-block;animation:blink 1s infinite;}
 @keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
 </style>
