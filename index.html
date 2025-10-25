@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>💬 دردشة مصغرة</title>
+<title>💬 دردشة مؤقتة</title>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
+// 🔹 إعداد Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
   authDomain: "kelta-gmae.firebaseapp.com",
@@ -25,12 +26,16 @@ const db = getDatabase(app);
 
 const usersRef = ref(db, "users");
 const messagesRef = ref(db, "messages");
+const typingRef = ref(db, "typing");
 const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA";
+
+// 🔹 إنشاء معرف فريد للجهاز
 let deviceId = localStorage.getItem("chat_device_id") || "dev_" + Math.floor(Math.random()*1e9);
 localStorage.setItem("chat_device_id", deviceId);
 
+// 🔹 اختيار اسم المستخدم
 async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
   const savedData = (await get(savedUsersRef)).val() || {};
@@ -51,47 +56,55 @@ async function chooseUsername() {
 }
 
 const username = await chooseUsername();
+
+// 🔹 اختيار اللون وحفظه
 const colors = ["#ff6b6b","#feca57","#ff9ff3","#48dbfb","#1dd1a1","#5f27cd","#ee5253","#0abde3"];
 let userColor = colors[Math.floor(Math.random()*colors.length)];
+// إذا كان المستخدم مسؤول، يصبح لونه بنفسجي
 if(username === ADMIN_NAME) userColor = "#8e44ad";
+await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
 
-let avatar = localStorage.getItem("chat_avatar") || null;
-await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId, avatar});
-
+// 🔹 إنشاء المستخدم
 const userId = "user_"+Math.floor(Math.random()*100000);
 const userRef = ref(db, "users/"+userId);
-await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now(), avatar});
+await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now()});
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
+// عناصر الصفحة
 const chatBox=document.getElementById("chat");
 const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
+const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 const toggleBtn = document.getElementById("toggleMode");
-const avatarBtn = document.getElementById("avatarBtn");
 
-function renderUsers(users){
+// 🔹 أصوات قصيرة وسريعة
+const soundJoin = new Audio("https://www.soundjay.com/button/sounds/button-3.mp3");
+const soundLeave = new Audio("https://www.soundjay.com/button/sounds/button-10.mp3");
+const soundTyping = new Audio("https://www.soundjay.com/button/sounds/button-16.mp3");
+let audioEnabled = false;
+document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
+
+// 🔹 عرض المستخدمين مع حالة الكتابة
+function renderUsers(users, typingUsers){
   userList.innerHTML = "";
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
-    const avatarImg = document.createElement("img");
-    avatarImg.src = u.avatar || "https://via.placeholder.com/20?text=👤";
-    avatarImg.style.width="20px";
-    avatarImg.style.height="20px";
-    avatarImg.style.borderRadius="50%";
-    avatarImg.style.marginLeft="8px";
-    li.appendChild(avatarImg);
-    li.appendChild(document.createTextNode(u.name));
-    li.style.borderRight = `4px solid ${u.name===ADMIN_NAME?"#8e44ad":"#fff"}`;
+    li.textContent = u.name;
+    // لون المستخدم مسؤول بنفسجي، والبقية أبيض
+    li.style.borderRight = `6px solid ${u.name===ADMIN_NAME ? "#8e44ad" : "#fff"}`;
+    if(typingUsers[id]) li.innerHTML += ` <span class="dots">…</span>`;
     userList.appendChild(li);
   });
 }
 
+// باقي السكريبت كما هو بالكامل
 let currentUsers = {};
+let currentTyping = {};
 onValue(usersRef, snapshot=>{
   currentUsers = snapshot.val() || {};
-  renderUsers(currentUsers);
+  renderUsers(currentUsers, currentTyping);
 });
 
 onChildAdded(usersRef, snapshot=>{
@@ -102,6 +115,7 @@ onChildAdded(usersRef, snapshot=>{
     div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
+    if(audioEnabled) soundJoin.play();
   }
 });
 onChildRemoved(usersRef, snapshot=>{
@@ -111,6 +125,7 @@ onChildRemoved(usersRef, snapshot=>{
   div.textContent = `❌ ${u.name} غادر الغرفة`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
+  if(audioEnabled) soundLeave.play();
 });
 
 let firstLoad = true;
@@ -119,22 +134,7 @@ onChildAdded(messagesRef, snapshot=>{
   const m = snapshot.val();
   const div=document.createElement("div");
   div.className="message "+(m.user===username?"mine":"other");
-
-  const avatarImg = document.createElement("img");
-  avatarImg.src = m.avatar || "https://via.placeholder.com/20?text=👤";
-  avatarImg.style.width="20px";
-  avatarImg.style.height="20px";
-  avatarImg.style.borderRadius="50%";
-  avatarImg.style.marginLeft="4px";
-
-  const strong = document.createElement("strong");
-  strong.style.color = m.user===ADMIN_NAME ? "#8e44ad" : "#fff";
-  strong.textContent = m.user + ":";
-
-  div.appendChild(avatarImg);
-  div.appendChild(strong);
-  div.append(" " + m.text);
-
+  div.innerHTML=`<strong style="color:${m.user===ADMIN_NAME ? "#8e44ad" : "#fff"}">${m.user}:</strong> ${m.text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
@@ -159,12 +159,32 @@ form.addEventListener("submit", e=>{
     user: username,
     color:userColor,
     text,
-    time: new Date().toLocaleTimeString(),
-    avatar
+    time: new Date().toLocaleTimeString()
   });
 
   msgInput.value="";
   msgInput.focus();
+  remove(ref(db,"typing/"+userId));
+});
+
+msgInput.addEventListener("input", ()=>{
+  set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
+  if(audioEnabled) soundTyping.play();
+});
+
+onValue(typingRef, snapshot=>{
+  const typingUsers = snapshot.val() || {};
+  currentTyping = {};
+  const now = Date.now();
+  Object.entries(typingUsers).forEach(([id,u])=>{
+    if(u.name !== username && now - (u.ts||0) < 2000) currentTyping[id] = true;
+  });
+  renderUsers(currentUsers, currentTyping);
+
+  const names = Object.entries(typingUsers)
+    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2000)
+    .map(([id,u])=>u.name);
+  typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
 
 toggleBtn.addEventListener("click", ()=>{
@@ -172,76 +192,81 @@ toggleBtn.addEventListener("click", ()=>{
   localStorage.setItem("theme",document.body.classList.contains("light")?"light":"dark");
 });
 if(localStorage.getItem("theme")==="light") document.body.classList.add("light");
-
-// 🔹 ضغط الصورة تلقائيًا قبل الحفظ
-const avatarInput = document.createElement("input");
-avatarInput.type="file";
-avatarInput.accept="image/*";
-avatarInput.style.display="none";
-document.body.appendChild(avatarInput);
-
-avatarBtn.addEventListener("click", ()=>avatarInput.click());
-avatarInput.addEventListener("change", (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-
-  const reader = new FileReader();
-  reader.onload = ()=>{ 
-    const img = new Image();
-    img.onload = ()=>{
-      const canvas = document.createElement("canvas");
-      const maxSize = 64; // الحجم النهائي
-      let w = img.width, h = img.height;
-      if(w>h){ h = h * maxSize / w; w = maxSize; }
-      else { w = w * maxSize / h; h = maxSize; }
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img,0,0,w,h);
-      const base64 = canvas.toDataURL("image/jpeg",0.7);
-      localStorage.setItem("chat_avatar", base64);
-      avatar = base64;
-      update(userRef,{avatar});
-    };
-    img.src = reader.result;
-  };
-  reader.readAsDataURL(file);
-});
 </script>
 
 <style>
-body { font-family:"Cairo",sans-serif; background:#121212; color:#e0e0e0; margin:0; padding:0; display:flex; flex-direction:column; align-items:center; height:100vh; transition:0.3s; }
+body {
+  font-family:"Cairo",sans-serif; background:#121212; color:#e0e0e0;
+  margin:0; padding:0; display:flex; flex-direction:column;
+  align-items:center; height:100vh; transition:0.3s;
+}
 body.light { background:#f9f9f9; color:#111; }
+
 h2 { color:#0abde3;margin:15px 0;font-size:1.4em; text-shadow:0 0 5px #0abde3; }
-#chat { flex:1;width:95%;max-width:650px;overflow-y:auto; border-radius:12px;padding:12px;background:#1f1f1f; box-shadow:0 0 15px rgba(0,0,0,0.3); transition:0.3s; }
+#chat {
+  flex:1;width:95%;max-width:650px;overflow-y:auto;
+  border-radius:12px;padding:12px;background:#1f1f1f;
+  box-shadow:0 0 15px rgba(0,0,0,0.3); transition:0.3s;
+}
 body.light #chat { background:#fff; }
-.message{ display:flex; margin-bottom:6px; line-height:1.4; word-wrap:break-word; padding:6px 10px; border-radius:16px; max-width:80%; background:#2b2b2b; color:#fff; clear:both; align-items:center; }
+
+.message{
+  margin-bottom:10px;line-height:1.5;word-wrap:break-word;
+  padding:10px 14px;border-radius:18px;max-width:80%;
+  background:#2b2b2b; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
+}
 body.light .message { background:#e8e8e8; color:#111; }
-.message.mine { margin-left:auto; border-bottom-right-radius:4px; border-bottom-left-radius:16px; }
-.message.other { margin-right:auto; border-bottom-left-radius:4px; border-bottom-right-radius:16px; }
-.message.system {color:#a3ffad;font-style:italic;font-size:0.9em;text-align:center;background:transparent;box-shadow:none;}
+.message.mine { margin-left:auto; }
+.message.other { margin-right:auto; }
+
+.message.system {color:#a3ffad;font-style:italic;font-size:0.95em;text-align:center;background:transparent;box-shadow:none;}
 .message.system.leave {color:#ff7b7b;}
-form{width:95%;max-width:650px;display:flex;gap:4px;margin:8px auto;}
-input{flex:1;padding:8px;border-radius:16px;border:none;outline:none;background:#2c2c2c;color:#fff;font-size:14px;}
+
+form{
+  width:95%;max-width:650px;display:flex;gap:5px;margin:10px auto;
+}
+input{
+  flex:1;padding:12px;border-radius:20px;border:none;outline:none;
+  background:#2c2c2c;color:#fff;font-size:16px; transition:0.3s;
+}
 body.light input { background:#f0f0f0;color:#111; }
-button{padding:8px 12px;border:none;border-radius:16px;background:#0abde3;color:#fff;font-weight:bold;cursor:pointer;}
+
+button{
+  padding:12px 18px;border:none;border-radius:20px;
+  background:#0abde3;color:#fff;font-weight:bold;cursor:pointer;transition:0.2s;
+}
 button:hover{background:#0dcaf0;}
-#toggleMode, #avatarBtn{ position:fixed; top:10px; left:10px; padding:8px 12px; background:#0abde3; color:#fff; border:none; border-radius:6px; cursor:pointer; }
-#avatarBtn{ left:auto; right:10px; }
-#users{list-style:none;padding:0;margin:8px 0;width:90%;max-width:400px;}
-#users li{ background:#2c2c2c;margin:4px 0;padding:6px 10px;border-radius:12px;text-align:right;font-weight:600;border-right:4px solid #fff; display:flex;align-items:center;gap:6px;}
-body.light #users li { background:#e0e0e0;color:#111;border-right:4px solid #888; }
+
+#toggleMode{
+  position:fixed; top:10px; left:10px; padding:10px 15px;
+  background:#0abde3; color:#fff; border:none; border-radius:8px; cursor:pointer;
+}
+
+#typing{font-size:14px;color:#ffd166;margin:6px;min-height:20px; transition:0.3s;}
+body.light #typing { color:#555; }
+
+#users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
+#users li{
+  background:#2c2c2c;margin:6px 0;padding:10px 14px;border-radius:15px;
+  text-align:right;font-weight:600;border-right:6px solid #fff;
+  display:flex;justify-content:space-between;align-items:center;transition:0.2s;
+}
+body.light #users li { background:#e0e0e0;color:#111;border-right:6px solid #888; }
 #users li:hover{background:#3a3a3a;}
 body.light #users li:hover{background:#ccc;}
+
+.dots{display:inline-block;animation:blink 1s infinite;font-weight:bold;color:#3ba55c;}
+@keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
 </style>
 
 </head>
 <body>
-<h2>💬 دردشة مصغرة</h2>
+<h2>💬 دردشة مؤقتة</h2>
 <button id="toggleMode">تبديل الوضع</button>
-<button id="avatarBtn">اختيار صورة</button>
 <div id="chat"></div>
+<div id="typing"></div>
 <form id="chatForm">
-  <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off"/>
+  <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
   <button>إرسال</button>
 </form>
 <h3>المتصلون الآن:</h3>
