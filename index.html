@@ -75,36 +75,50 @@ const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 
-// 🔹 صوت الانضمام (يعمل بعد أول تفاعل)
+// 🔹 صوت الانضمام
 const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3");
 let audioEnabled = false;
 document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
 // 🔹 عرض المستخدمين
-onValue(usersRef, snapshot=>{
-  const users = snapshot.val() || {};
-  const userList=document.getElementById("users");
-  userList.innerHTML="";
-  Object.values(users).forEach(u=>{
-    const li=document.createElement("li");
-    li.textContent=u.name;
-    li.style.borderRight=`6px solid ${u.color}`;
-    userList.appendChild(li);
+function renderUsers(typingUsers={}){
+  get(usersRef).then(snapshot=>{
+    const users = snapshot.val() || {};
+    const userList=document.getElementById("users");
+    userList.innerHTML="";
+    Object.entries(users).forEach(([id,u])=>{
+      const li=document.createElement("li");
+      li.textContent=u.name;
+      li.style.borderRight=`6px solid ${u.color}`;
+      // إضافة حالة الكتابة أمام الاسم إذا موجود
+      if(typingUsers[id] && typingUsers[id].name!==username){
+        const dots = document.createElement("span");
+        dots.textContent=" …";
+        dots.className="typingDots";
+        li.appendChild(dots);
+      }
+      userList.appendChild(li);
+    });
   });
-});
+}
 
 // 🔹 استقبال الرسائل الجديدة بعد دخول المستخدم
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
   const m = snapshot.val();
-  const div=document.createElement("div");
-  div.className="message";
-  div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
+  appendMessage(m.user,m.color,m.text);
 });
 get(messagesRef).then(()=>{ firstLoad=false; });
+
+// 🔹 وظيفة لإضافة الرسائل للشات
+function appendMessage(user,color,text){
+  const div=document.createElement("div");
+  div.className="message";
+  div.innerHTML=`<strong style="color:${color}">${user}:</strong> ${text}`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
 
 // 🔹 تحديث فوري عند حذف الرسائل
 onValue(messagesRef, snapshot=>{
@@ -123,26 +137,13 @@ onValue(messagesRef, snapshot=>{
 onChildAdded(usersRef, snapshot=>{
   const u = snapshot.val();
   if(u.name !== username){
-    const div = document.createElement("div");
-    div.className="message";
-    div.style.fontStyle="italic";
-    div.style.color="#55ff55";
-    div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    appendMessage("نظام","#55ff55",`✅ ${u.name} انضم إلى الغرفة`);
     if(audioEnabled) joinSound.play();
   }
 });
-
 onChildRemoved(usersRef, snapshot=>{
   const u = snapshot.val();
-  const div = document.createElement("div");
-  div.className="message";
-  div.style.fontStyle="italic";
-  div.style.color="#ff5555";
-  div.textContent = `❌ ${u.name} غادر الغرفة`;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
+  appendMessage("نظام","#ff5555",`❌ ${u.name} غادر الغرفة`);
 });
 
 // 🔹 إرسال الرسائل
@@ -151,6 +152,7 @@ form.addEventListener("submit", async e=>{
   const text=msgInput.value.trim();
   if(!text) return;
 
+  // حذف الشات لجميع المستخدمين
   if(text.startsWith("/delete") && username===ADMIN_NAME){
     await remove(messagesRef);
     msgInput.value="";
@@ -163,29 +165,21 @@ form.addEventListener("submit", async e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-// 🔹 الكتابة الحية محسنة
-let typingTimers = {};
+// 🔹 الكتابة الحية مع نقاط متحركة
 msgInput.addEventListener("input", ()=>{
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
 });
 
-onValue(typingRef, snapshot=>{
+function updateTypingStatus(snapshot){
   const typingUsers = snapshot.val() || {};
   const now = Date.now();
-  const names=[];
   Object.entries(typingUsers).forEach(([id,u])=>{
-    if(u.name !== username && now - u.ts < 2500){
-      names.push(u.name);
-    }else{
-      remove(ref(db,"typing/"+id));
-    }
+    if(now - u.ts > 2500) remove(ref(db,"typing/"+id));
   });
-  if(names.length){
-    typingBox.innerHTML = `<em style="color:#ffd166;">${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}</em>`;
-  }else{
-    typingBox.innerHTML="";
-  }
-});
+  renderUsers(typingUsers);
+}
+
+onValue(typingRef, snapshot=>{ updateTypingStatus(snapshot); });
 </script>
 
 <style>
@@ -198,7 +192,13 @@ input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
 #typing{font-size:14px;color:#ffd166;margin:5px;min-height:18px;}
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
-#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;}
+#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
+.typingDots{font-weight:bold;color:#ffd166;animation:blink 1s infinite;}
+@keyframes blink{
+  0% {opacity:0;}
+  50% {opacity:1;}
+  100% {opacity:0;}
+}
 </style>
 </head>
 <body>
