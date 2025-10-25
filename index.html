@@ -61,12 +61,16 @@ const username = await chooseUsername();
 const colors = ["#ff6b6b","#feca57","#ff9ff3","#48dbfb","#1dd1a1","#5f27cd","#ee5253","#0abde3"];
 let userColor = colors[Math.floor(Math.random()*colors.length)];
 if(username === ADMIN_NAME) userColor = "#8e44ad";
-await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
+
+// 🔹 استرجاع صورة البروفايل من التخزين
+let avatar = localStorage.getItem("chat_avatar") || null;
+
+await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId, avatar});
 
 // 🔹 إنشاء المستخدم
 const userId = "user_"+Math.floor(Math.random()*100000);
 const userRef = ref(db, "users/"+userId);
-await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now()});
+await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now(), avatar});
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
@@ -77,6 +81,7 @@ const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 const toggleBtn = document.getElementById("toggleMode");
+const avatarBtn = document.getElementById("avatarBtn");
 
 // 🔹 أصوات قصيرة وسريعة
 const soundJoin = new Audio("https://www.soundjay.com/button/sounds/button-3.mp3");
@@ -90,7 +95,14 @@ function renderUsers(users, typingUsers){
   userList.innerHTML = "";
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
-    li.textContent = u.name;
+    const avatarImg = document.createElement("img");
+    avatarImg.src = u.avatar || "https://via.placeholder.com/30?text=👤";
+    avatarImg.style.width="30px";
+    avatarImg.style.height="30px";
+    avatarImg.style.borderRadius="50%";
+    avatarImg.style.marginLeft="10px";
+    li.appendChild(avatarImg);
+    li.appendChild(document.createTextNode(u.name));
     li.style.borderRight = `6px solid ${u.name===ADMIN_NAME ? "#8e44ad" : "#fff"}`;
     if(typingUsers[id]) li.innerHTML += ` <span class="dots">…</span>`;
     userList.appendChild(li);
@@ -132,7 +144,23 @@ onChildAdded(messagesRef, snapshot=>{
   const m = snapshot.val();
   const div=document.createElement("div");
   div.className="message "+(m.user===username?"mine":"other");
-  div.innerHTML=`<strong style="color:${m.user===ADMIN_NAME ? "#8e44ad" : "#fff"}">${m.user}:</strong> ${m.text}`;
+
+  // عرض الصورة بجانب اسم المستخدم في الرسائل
+  const avatarImg = document.createElement("img");
+  avatarImg.src = m.avatar || "https://via.placeholder.com/30?text=👤";
+  avatarImg.style.width="25px";
+  avatarImg.style.height="25px";
+  avatarImg.style.borderRadius="50%";
+  avatarImg.style.marginLeft="6px";
+
+  const strong = document.createElement("strong");
+  strong.style.color = m.user===ADMIN_NAME ? "#8e44ad" : "#fff";
+  strong.textContent = m.user + ":";
+  
+  div.appendChild(avatarImg);
+  div.appendChild(strong);
+  div.append(" " + m.text);
+
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
@@ -157,7 +185,8 @@ form.addEventListener("submit", e=>{
     user: username,
     color:userColor,
     text,
-    time: new Date().toLocaleTimeString()
+    time: new Date().toLocaleTimeString(),
+    avatar
   });
 
   msgInput.value="";
@@ -190,6 +219,28 @@ toggleBtn.addEventListener("click", ()=>{
   localStorage.setItem("theme",document.body.classList.contains("light")?"light":"dark");
 });
 if(localStorage.getItem("theme")==="light") document.body.classList.add("light");
+
+// 🔹 زر اختيار الصورة الشخصية
+const avatarInput = document.createElement("input");
+avatarInput.type="file";
+avatarInput.accept="image/*";
+avatarInput.style.display="none";
+document.body.appendChild(avatarInput);
+
+avatarBtn.addEventListener("click", ()=>avatarInput.click());
+avatarInput.addEventListener("change", (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{ 
+    const base64 = reader.result;
+    localStorage.setItem("chat_avatar", base64);
+    avatar = base64;
+    alert("تم حفظ الصورة الشخصية!");
+    update(userRef,{avatar}); // تحديث في Firebase مباشرة
+  };
+  reader.readAsDataURL(file);
+});
 </script>
 
 <style>
@@ -201,6 +252,7 @@ body {
 body.light { background:#f9f9f9; color:#111; }
 
 h2 { color:#0abde3;margin:15px 0;font-size:1.4em; text-shadow:0 0 5px #0abde3; }
+
 #chat {
   flex:1;width:95%;max-width:650px;overflow-y:auto;
   border-radius:12px;padding:12px;background:#1f1f1f;
@@ -208,16 +260,17 @@ h2 { color:#0abde3;margin:15px 0;font-size:1.4em; text-shadow:0 0 5px #0abde3; }
 }
 body.light #chat { background:#fff; }
 
+/* فقاعات تشبه واتس */
 .message{
-  display:inline-block;
-  margin-bottom:10px;line-height:1.5;word-wrap:break-word;
-  padding:10px 14px;border-radius:20px;
-  max-width:75%; background:#2b2b2b; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
+  display:block; 
+  margin-bottom:10px; line-height:1.5; word-wrap:break-word;
+  padding:10px 14px; border-radius:20px; max-width:75%;
+  background:#2b2b2b; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
+  display:flex; align-items:center;
 }
+body.light .message { background:#e8e8e8; color:#111; }
 .message.mine { margin-left:auto; border-bottom-right-radius:2px; border-bottom-left-radius:20px; }
 .message.other { margin-right:auto; border-bottom-left-radius:2px; border-bottom-right-radius:20px; }
-
-body.light .message { background:#e8e8e8; color:#111; }
 
 .message.system {color:#a3ffad;font-style:italic;font-size:0.95em;text-align:center;background:transparent;box-shadow:none;}
 .message.system.leave {color:#ff7b7b;}
@@ -237,10 +290,11 @@ button{
 }
 button:hover{background:#0dcaf0;}
 
-#toggleMode{
+#toggleMode, #avatarBtn{
   position:fixed; top:10px; left:10px; padding:10px 15px;
   background:#0abde3; color:#fff; border:none; border-radius:8px; cursor:pointer;
 }
+#avatarBtn{ left:auto; right:10px; }
 
 #typing{font-size:14px;color:#ffd166;margin:6px;min-height:20px; transition:0.3s;}
 body.light #typing { color:#555; }
@@ -249,7 +303,7 @@ body.light #typing { color:#555; }
 #users li{
   background:#2c2c2c;margin:6px 0;padding:10px 14px;border-radius:15px;
   text-align:right;font-weight:600;border-right:6px solid #fff;
-  display:flex;justify-content:space-between;align-items:center;transition:0.2s;
+  display:flex;align-items:center;gap:8px;transition:0.2s;
 }
 body.light #users li { background:#e0e0e0;color:#111;border-right:6px solid #888; }
 #users li:hover{background:#3a3a3a;}
@@ -263,6 +317,7 @@ body.light #users li:hover{background:#ccc;}
 <body>
 <h2>💬 دردشة مؤقتة</h2>
 <button id="toggleMode">تبديل الوضع</button>
+<button id="avatarBtn">اختيار صورة</button>
 <div id="chat"></div>
 <div id="typing"></div>
 <form id="chatForm">
