@@ -169,66 +169,27 @@ form.addEventListener("submit", e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-
-// 🔹 تحسين الكتابة الحية مع تتبع ذكي وأداء أسرع
-let typingTimeout;
-let lastTypingTimestamp = 0;
-
+// 🔹 الكتابة الحية مع تحسين التتبع
 msgInput.addEventListener("input", ()=>{
-  const now = Date.now();
-  
-  // إرسال تحديث الكتابة كل 300ms على الأكثر
-  if(now - lastTypingTimestamp > 300){
-    lastTypingTimestamp = now;
-    set(ref(db, "typing/" + userId), {name: username, ts: now});
-  } else {
-    // تأخير آخر تحديث إذا تم الكتابة بسرعة
-    if(typingTimeout) clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(()=>{
-      set(ref(db, "typing/" + userId), {name: username, ts: Date.now()});
-    }, 300);
-  }
-
-  // تشغيل صوت مرة واحدة عند بداية الكتابة
-  if(audioEnabled && !msgInput.dataset.typingSoundPlayed){
-    soundTyping.play();
-    msgInput.dataset.typingSoundPlayed = "true";
-  }
+  set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
+  if(audioEnabled) soundTyping.play();
 });
 
-// إعادة تهيئة حالة الصوت عند توقف الكتابة
-msgInput.addEventListener("blur", ()=>{
-  msgInput.dataset.typingSoundPlayed = "";
-});
-
-// 🔹 استقبال تحديثات الكتابة من الآخرين وتحسين الأداء
 onValue(typingRef, snapshot=>{
   const typingUsers = snapshot.val() || {};
+  currentTyping = {};
   const now = Date.now();
-  let changed = false;
-
-  const newTyping = {};
-  Object.entries(typingUsers).forEach(([id, u])=>{
-    if(u.name !== username && now - (u.ts || 0) < 2000){
-      newTyping[id] = true;
-      if(!currentTyping[id]) changed = true; // اكتشاف تغيير
-    }
+  Object.entries(typingUsers).forEach(([id,u])=>{
+    if(u.name !== username && now - (u.ts||0) < 2000) currentTyping[id] = true;
   });
-
-  // اكتشاف تغييرات اختصارية لتجنب إعادة رسم غير ضرورية
-  if(Object.keys(newTyping).length !== Object.keys(currentTyping).length) changed = true;
-
-  currentTyping = newTyping;
-  if(changed) renderUsers(currentUsers, currentTyping);
+  renderUsers(currentUsers, currentTyping);
 
   const names = Object.entries(typingUsers)
     .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2000)
     .map(([id,u])=>u.name);
-  
-  typingBox.textContent = names.length 
-    ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}`
-    : "";
+  typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
+
 
 
   // عرض الكتابة أسفل الدردشة
@@ -328,5 +289,6 @@ body.light #users li:hover{background:#ccc;}
 <ul id="users"></ul>
 </body>
 </html>
+
 
 
