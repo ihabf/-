@@ -90,8 +90,20 @@ setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000)
 let emptyTimeout;
 onValue(usersRef, snapshot => {
   const users = snapshot.val() || {};
-  const otherUsers = Object.keys(users).filter(uid => uid !== userId);
   
+  // عرض المستخدمين أولًا
+  const userList = document.getElementById("users");
+  userList.innerHTML = "";
+  Object.values(users).forEach(u => {
+    const li = document.createElement("li");
+    li.textContent = u.name;
+    li.style.borderRight = `6px solid ${u.color}`;
+    userList.appendChild(li);
+  });
+
+  // فحص إذا لم يبق أي مستخدم آخر
+  const otherUsers = Object.keys(users).filter(uid => uid !== userId);
+
   clearTimeout(emptyTimeout);
   if (otherUsers.length === 0) {
     emptyTimeout = setTimeout(async () => {
@@ -102,19 +114,6 @@ onValue(usersRef, snapshot => {
       }
     }, 5000); // 5 ثوانٍ انتظار قبل الحذف
   }
-});
-
-// 🔹 عرض المستخدمين
-onValue(usersRef, snapshot => {
-  const users = snapshot.val() || {};
-  const userList = document.getElementById("users");
-  userList.innerHTML = "";
-  Object.values(users).forEach(u => {
-    const li = document.createElement("li");
-    li.textContent = u.name;
-    li.style.borderRight = `6px solid ${u.color}`;
-    userList.appendChild(li);
-  });
 });
 
 const form = document.getElementById("chatForm");
