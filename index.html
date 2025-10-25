@@ -45,7 +45,7 @@ async function chooseUsername() {
   const savedData = savedSnap.val() || {};
 
   if (username && savedData[username]?.deviceId === deviceId) {
-    return username; // استرجاع الاسم السابق لنفس الجهاز
+    return username;
   }
 
   let valid = false;
@@ -78,20 +78,19 @@ let userColor = colors[Math.floor(Math.random() * colors.length)];
 // حفظ اللون مع deviceId
 await set(ref(db, "savedUsers/" + username), { color: userColor, deviceId });
 
-// 🔹 بقية السكريبت كما هو تمامًا، دون أي تعديل
+// 🔹 إنشاء المستخدم في قاعدة البيانات
 const userId = "user_" + Math.floor(Math.random() * 100000);
 const userRef = ref(db, "users/" + userId);
 await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now() });
 onDisconnect(userRef).remove();
-
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-// 🔹 تنفيذ /delete تلقائيًا إذا لم يبق أي مستخدم آخر لمدة 5 ثوانٍ
-let emptyTimeout;
+// 🔹 حذف الرسائل تلقائيًا إذا لم يبق أي مستخدم آخر لمدة 5 ثوانٍ
+let deleteTimeout;
 onValue(usersRef, snapshot => {
   const users = snapshot.val() || {};
-  
-  // عرض المستخدمين أولًا
+
+  // عرض المستخدمين
   const userList = document.getElementById("users");
   userList.innerHTML = "";
   Object.values(users).forEach(u => {
@@ -101,21 +100,21 @@ onValue(usersRef, snapshot => {
     userList.appendChild(li);
   });
 
-  // فحص إذا لم يبق أي مستخدم آخر
+  // التحقق من وجود مستخدمين آخرين
   const otherUsers = Object.keys(users).filter(uid => uid !== userId);
-
-  clearTimeout(emptyTimeout);
+  clearTimeout(deleteTimeout);
   if (otherUsers.length === 0) {
-    emptyTimeout = setTimeout(async () => {
+    deleteTimeout = setTimeout(async () => {
       const messagesSnap = await get(messagesRef);
       if (messagesSnap.exists()) {
-        messagesSnap.forEach(c => remove(ref(db, "messages/" + c.key)));
+        await remove(messagesRef);
         console.log("🧹 تم حذف جميع الرسائل تلقائيًا لعدم وجود مستخدمين آخرين");
       }
-    }, 5000); // 5 ثوانٍ انتظار قبل الحذف
+    }, 5000);
   }
 });
 
+// 🔹 التعامل مع إرسال الرسائل
 const form = document.getElementById("chatForm");
 const msgInput = document.getElementById("msg");
 const chatBox = document.getElementById("chat");
@@ -140,6 +139,7 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
+// 🔹 عرض الرسائل الجديدة
 onChildAdded(messagesRef, snapshot => {
   const m = snapshot.val();
   const div = document.createElement("div");
@@ -149,6 +149,7 @@ onChildAdded(messagesRef, snapshot => {
   chatBox.scrollTop = chatBox.scrollHeight;
 });
 
+// 🔹 الكتابة الحية
 msgInput.addEventListener("input", () => {
   set(ref(db, "typing/" + userId), { name: username });
   clearTimeout(window.typingTimeout);
