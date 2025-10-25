@@ -29,39 +29,31 @@ const messagesRef = ref(db, "messages");
 const typingRef = ref(db, "typing");
 const savedUsersRef = ref(db, "savedUsers");
 
-const ADMIN_NAME = "KeltA"; // اسم المدير
+const ADMIN_NAME = "KeltA";
 
-// 🔹 إنشاء معرف فريد للجهاز
-let deviceId = localStorage.getItem("chat_device_id");
-if (!deviceId) {
-  deviceId = "dev_" + Math.floor(Math.random() * 1e9);
-  localStorage.setItem("chat_device_id", deviceId);
-}
+// 🔹 معرف الجهاز
+let deviceId = localStorage.getItem("chat_device_id") || ("dev_" + Math.floor(Math.random() * 1e9));
+localStorage.setItem("chat_device_id", deviceId);
 
-// 🔹 اختيار الاسم مع حفظه للجهاز وربطه بالـ deviceId
+// 🔹 اختيار اسم المستخدم
 async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
   const savedSnap = await get(savedUsersRef);
   const savedData = savedSnap.val() || {};
 
-  if (username && savedData[username]?.deviceId === deviceId) {
-    return username;
-  }
+  if (username && savedData[username]?.deviceId === deviceId) return username;
 
   let valid = false;
   while (!valid) {
     username = prompt("اكتب اسمك:")?.trim();
-    if (!username) { alert("⚠️ يجب إدخال اسم صالح للدخول!"); continue; }
+    if (!username) { alert("⚠️ يجب إدخال اسم صالح!"); continue; }
 
     const usersSnap = await get(usersRef);
     const usersData = usersSnap.val() || {};
     const nameTaken = Object.values(usersData).some(u => u.name === username);
     const nameSavedElsewhere = savedData[username] && savedData[username].deviceId !== deviceId;
 
-    if (nameTaken || nameSavedElsewhere) {
-      alert("❌ هذا الاسم مستخدم بالفعل أو محفوظ لجهاز آخر! اختر اسمًا آخر.");
-      continue;
-    }
+    if (nameTaken || nameSavedElsewhere) { alert("❌ الاسم مستخدم بالفعل!"); continue; }
     valid = true;
   }
 
@@ -75,22 +67,20 @@ const username = await chooseUsername();
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 let userColor = colors[Math.floor(Math.random() * colors.length)];
 
-// حفظ اللون مع deviceId
+// حفظ اللون
 await set(ref(db, "savedUsers/" + username), { color: userColor, deviceId });
 
-// 🔹 إنشاء المستخدم في قاعدة البيانات
+// 🔹 إضافة المستخدم
 const userId = "user_" + Math.floor(Math.random() * 100000);
 const userRef = ref(db, "users/" + userId);
 await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now() });
 onDisconnect(userRef).remove();
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-// 🔹 حذف الرسائل تلقائيًا إذا لم يبق أي مستخدم آخر لمدة 5 ثوانٍ
+// 🔹 عرض المستخدمين والحذف التلقائي (سيعمل فقط أثناء تشغيل الصفحة)
 let deleteTimeout;
 onValue(usersRef, snapshot => {
   const users = snapshot.val() || {};
-
-  // عرض المستخدمين
   const userList = document.getElementById("users");
   userList.innerHTML = "";
   Object.values(users).forEach(u => {
@@ -100,7 +90,6 @@ onValue(usersRef, snapshot => {
     userList.appendChild(li);
   });
 
-  // التحقق من وجود مستخدمين آخرين
   const otherUsers = Object.keys(users).filter(uid => uid !== userId);
   clearTimeout(deleteTimeout);
   if (otherUsers.length === 0) {
@@ -108,13 +97,13 @@ onValue(usersRef, snapshot => {
       const messagesSnap = await get(messagesRef);
       if (messagesSnap.exists()) {
         await remove(messagesRef);
-        console.log("🧹 تم حذف جميع الرسائل تلقائيًا لعدم وجود مستخدمين آخرين");
+        console.log("🧹 تم حذف جميع الرسائل تلقائيًا لعدم وجود مستخدمين آخرين (أثناء تشغيل الصفحة)");
       }
     }, 5000);
   }
 });
 
-// 🔹 التعامل مع إرسال الرسائل
+// 🔹 إرسال الرسائل وحذفها يدوياً
 const form = document.getElementById("chatForm");
 const msgInput = document.getElementById("msg");
 const chatBox = document.getElementById("chat");
