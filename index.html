@@ -35,7 +35,7 @@ const ADMIN_NAME = "KeltA";
 let deviceId = localStorage.getItem("chat_device_id") || "dev_" + Math.floor(Math.random()*1e9);
 localStorage.setItem("chat_device_id", deviceId);
 
-// 🔹 اختيار اسم المستخدم
+// 🔹 اختيار اسم المستخدم مع نافذة تنبيه إذا كان الاسم غير صالح
 async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
   const savedData = (await get(savedUsersRef)).val() || {};
@@ -48,7 +48,10 @@ async function chooseUsername() {
     const usersData = (await get(usersRef)).val() || {};
     const nameTaken = Object.values(usersData).some(u=>u.name===username);
     const nameSavedElsewhere = savedData[username] && savedData[username].deviceId!==deviceId;
-    if(nameTaken || nameSavedElsewhere) continue;
+    if(nameTaken || nameSavedElsewhere){
+      alert("⚠️ هذا الاسم غير صالح أو مستخدم من قبل، حاول اسم آخر.");
+      continue;
+    }
     valid=true;
   }
   localStorage.setItem("chat_username", username);
@@ -76,8 +79,9 @@ const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 
-// 🔹 صوت الانضمام
-const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3");
+// 🔹 صوت الانضمام البسيط
+const joinSound = new Audio("https://freesound.org/data/previews/250/250629_4486188-lq.mp3");
+joinSound.volume = 0.3; // خفّف الصوت ليكون بسيطاً
 let audioEnabled = false;
 document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
@@ -186,7 +190,6 @@ onValue(typingRef,snapshot=>{
   });
   renderUsers(currentUsers, currentTyping);
 
-  // الرسالة أسفل الدردشة
   const names = Object.entries(typingUsers)
     .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
     .map(([id,u])=>u.name);
