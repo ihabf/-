@@ -145,27 +145,20 @@ onValue(messagesRef, snapshot=>{
 });
 
 // 🔹 إرسال الرسائل بسرعة قصوى
-form.addEventListener("submit", e=>{
+form.addEventListener("submit", async e=>{
   e.preventDefault();
-  const text = msgInput.value.trim();
+  const text=msgInput.value.trim();
   if(!text) return;
 
-  if(text.startsWith("/delete") && username === ADMIN_NAME){
-    remove(messagesRef);
+  if(text.startsWith("/delete") && username===ADMIN_NAME){
+    await remove(messagesRef);
     msgInput.value="";
     return;
   }
 
-  // إرسال الرسالة مباشرة بدون انتظار
-  push(messagesRef, {
-    user: username,
-    color: userColor,
-    text,
-    time: new Date().toLocaleTimeString()
-  });
-
+  const msgRef=push(messagesRef);
+  await set(msgRef,{user:username,color:userColor,text,time:new Date().toLocaleTimeString()});
   msgInput.value="";
-  msgInput.focus(); // للحفاظ على التركيز بعد الإرسال
   remove(ref(db,"typing/"+userId));
 });
 
@@ -183,14 +176,6 @@ onValue(typingRef, snapshot=>{
     if(u.name !== username && now - (u.ts||0) < 2000) currentTyping[id] = true;
   });
   renderUsers(currentUsers, currentTyping);
-
-  const names = Object.entries(typingUsers)
-    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2000)
-    .map(([id,u])=>u.name);
-  typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
-});
-
-
 
   // عرض الكتابة أسفل الدردشة
   const names = Object.entries(typingUsers)
@@ -289,6 +274,3 @@ body.light #users li:hover{background:#ccc;}
 <ul id="users"></ul>
 </body>
 </html>
-
-
-
