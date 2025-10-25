@@ -57,15 +57,22 @@ async function chooseUsername() {
 
 const username = await chooseUsername();
 
-// 🔹 اختيار اللون وحفظه
-const colors = ["#ff6b6b","#feca57","#ff9ff3","#48dbfb","#1dd1a1","#5f27cd","#ee5253","#0abde3"];
-const userColor = colors[Math.floor(Math.random()*colors.length)];
-await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
+// 🔹 اختيار صورة افاتار
+let avatarUrl = localStorage.getItem("chat_avatar") || "";
+function chooseAvatar(file) {
+  const reader = new FileReader();
+  reader.onload = ()=> {
+    avatarUrl = reader.result;
+    localStorage.setItem("chat_avatar", avatarUrl);
+    update(userRef,{avatar: avatarUrl});
+  }
+  reader.readAsDataURL(file);
+}
 
 // 🔹 إنشاء المستخدم
 const userId = "user_"+Math.floor(Math.random()*100000);
 const userRef = ref(db, "users/"+userId);
-await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now()});
+await set(userRef,{name:username,color:"white",online:true,lastSeen:Date.now(),avatar:avatarUrl});
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
@@ -76,6 +83,7 @@ const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 const toggleBtn = document.getElementById("toggleMode");
+const avatarInput = document.getElementById("avatarInput");
 
 // 🔹 أصوات قصيرة وسريعة
 const soundJoin = new Audio("https://www.soundjay.com/button/sounds/button-3.mp3");
@@ -84,14 +92,13 @@ const soundTyping = new Audio("https://www.soundjay.com/button/sounds/button-16.
 let audioEnabled = false;
 document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
-// 🔹 عرض المستخدمين مع حالة الكتابة
+// 🔹 عرض المستخدمين مع حالة الكتابة وأفاتار
 function renderUsers(users, typingUsers){
   userList.innerHTML = "";
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
-    li.textContent = u.name;
-    li.style.borderRight = `6px solid ${u.color}`;
-    if(typingUsers[id]) li.innerHTML += ` <span class="dots">…</span>`;
+    const nameColor = u.name === ADMIN_NAME ? "#8e44ad" : "#fff";
+    li.innerHTML = `${u.avatar?`<img src="${u.avatar}" class="avatar">`:""}<span style="color:${nameColor}">${u.name}</span> ${typingUsers[id]?"<span class='dots'>…</span>":""}`;
     userList.appendChild(li);
   });
 }
@@ -110,7 +117,7 @@ onChildAdded(usersRef, snapshot=>{
   if(u.name !== username){
     const div = document.createElement("div");
     div.className="message system";
-    div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
+    div.innerHTML = `${u.avatar?`<img src="${u.avatar}" class="avatar">`:""} ✅ <span style="color:${u.name===ADMIN_NAME?"#8e44ad":"#fff"}">${u.name}</span> انضم إلى الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
     if(audioEnabled) soundJoin.play();
@@ -120,7 +127,7 @@ onChildRemoved(usersRef, snapshot=>{
   const u = snapshot.val();
   const div = document.createElement("div");
   div.className="message system leave";
-  div.textContent = `❌ ${u.name} غادر الغرفة`;
+  div.innerHTML = `${u.avatar?`<img src="${u.avatar}" class="avatar">`:""} ❌ <span style="color:${u.name===ADMIN_NAME?"#8e44ad":"#fff"}">${u.name}</span> غادر الغرفة`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
   if(audioEnabled) soundLeave.play();
@@ -131,9 +138,10 @@ let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
   const m = snapshot.val();
+  const nameColor = m.user===ADMIN_NAME?"#8e44ad":"#fff";
   const div=document.createElement("div");
   div.className="message "+(m.user===username?"mine":"other");
-  div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  div.innerHTML=`${m.avatar?`<img src="${m.avatar}" class="avatar">`:""} <strong style="color:${nameColor}">${m.user}:</strong> ${m.text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
@@ -144,7 +152,7 @@ onValue(messagesRef, snapshot=>{
   if(!snapshot.exists()) chatBox.innerHTML = "";
 });
 
-// 🔹 إرسال الرسائل بسرعة قصوى
+// 🔹 إرسال الرسائل
 form.addEventListener("submit", e=>{
   e.preventDefault();
   const text = msgInput.value.trim();
@@ -158,8 +166,9 @@ form.addEventListener("submit", e=>{
 
   push(messagesRef, {
     user: username,
-    color: userColor,
+    color:"white",
     text,
+    avatar: avatarUrl,
     time: new Date().toLocaleTimeString()
   });
 
@@ -168,7 +177,7 @@ form.addEventListener("submit", e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-// 🔹 الكتابة الحية مع تحسين التتبع
+// 🔹 الكتابة الحية
 msgInput.addEventListener("input", ()=>{
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
   if(audioEnabled) soundTyping.play();
@@ -196,6 +205,11 @@ toggleBtn.addEventListener("click", ()=>{
 });
 if(localStorage.getItem("theme")==="light") document.body.classList.add("light");
 
+// 🔹 اختيار صورة الأفاتار
+avatarInput.addEventListener("change", e=>{
+  chooseAvatar(e.target.files[0]);
+});
+
 </script>
 
 <style>
@@ -209,10 +223,9 @@ body {
 body.light { 
   background: linear-gradient(90deg, #f4f0f4,#45484a); 
   color:#222; 
-  filter:brightness(0.85); /* تقليل السطوع */
-  animation: backgroundMove 20s linear infinite; /* حركة خفيفة */
+  filter:brightness(0.85);
+  animation: backgroundMove 20s linear infinite;
 }
-
 @keyframes backgroundMove {
   0% { background-position:0% 0%; }
   50% { background-position:100% 100%; }
@@ -230,11 +243,7 @@ body.light #chat { background:#f7f7f7; }
 .message{
   margin-bottom:10px;line-height:1.5;word-wrap:break-word;
   padding:10px 14px;border-radius:18px;max-width:fit-content;
-  background:radial-gradient(at 47.966% 59.17%, hsla(195, 8.16%, 19.21%, 1) 0%, hsla(195, 8.16%, 19.21%, 0) 100%),
-             radial-gradient(at 47.649% 82.394%, hsla(0, 6.25%, 18.82%, 1) 0%, hsla(0, 6.25%, 18.82%, 0) 100%),
-             radial-gradient(at 95.492% 30.99%, hsla(135, 5.45%, 43.13%, 1) 0%, hsla(135, 5.45%, 43.13%, 0) 100%),
-             radial-gradient(at 33.06% 63.91%, hsla(196, 8.02%, 36.66%, 1) 0%, hsla(196, 8.02%, 36.66%, 0) 100%),
-             radial-gradient(at 15.14% 8.34%, hsla(195, 8.16%, 19.21%, 1) 0%, hsla(195, 8.16%, 19.21%, 0) 100%);
+  background:radial-gradient(at 47.966% 59.17%, hsla(195, 8.16%, 19.21%, 1) 0%, hsla(195, 8.16%, 19.21%, 0) 100%);
   box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
 }
 body.light .message {
@@ -243,8 +252,8 @@ body.light .message {
 }
 .message.mine { margin-left:auto; color:#fff; }
 body.light .message.mine { color:#fff; }
-.message.other { margin-right:auto; color:#ddd; }
-body.light .message.other { color:#222; }
+.message.other { margin-right:auto; color:#fff; }
+body.light .message.other { color:#fff; }
 
 .message.system {color:#a3ffad;font-style:italic;font-size:0.95em;text-align:center;background:transparent;box-shadow:none;}
 .message.system.leave {color:#ff7b7b;}
@@ -276,11 +285,13 @@ body.light #typing { color:#555; }
 #users li{
   background:#2c2c2c;margin:6px 0;padding:10px;border-radius:15px;
   text-align:right;font-weight:600;border-right:6px solid #1dd1a1;
-  display:flex;justify-content:space-between;align-items:center;transition:0.2s;
+  display:flex;justify-content:flex-start;align-items:center;gap:8px;transition:0.2s;
 }
 body.light #users li { background:#ededed;color:#222;border-right:6px solid #48dbfb; }
 #users li:hover{background:#3a3a3a;}
 body.light #users li:hover{background:#dcdcdc;}
+
+.avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;}
 
 .dots{display:inline-block;animation:blink 1s infinite;font-weight:bold;color:#3ba55c;}
 @keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
@@ -290,6 +301,7 @@ body.light #users li:hover{background:#dcdcdc;}
 <body>
 <h2>💬 دردشة مؤقتة</h2>
 <button id="toggleMode">تبديل الوضع</button>
+<input type="file" id="avatarInput" accept="image/*" style="margin:10px;"/>
 <div id="chat"></div>
 <div id="typing"></div>
 <form id="chatForm">
