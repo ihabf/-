@@ -145,22 +145,30 @@ onValue(messagesRef, snapshot=>{
 });
 
 // 🔹 إرسال الرسائل بسرعة قصوى
-form.addEventListener("submit", async e=>{
+form.addEventListener("submit", e=>{
   e.preventDefault();
-  const text=msgInput.value.trim();
+  const text = msgInput.value.trim();
   if(!text) return;
 
-  if(text.startsWith("/delete") && username===ADMIN_NAME){
-    await remove(messagesRef);
+  if(text.startsWith("/delete") && username === ADMIN_NAME){
+    remove(messagesRef);
     msgInput.value="";
     return;
   }
 
-  const msgRef=push(messagesRef);
-  await set(msgRef,{user:username,color:userColor,text,time:new Date().toLocaleTimeString()});
+  // إرسال الرسالة مباشرة بدون انتظار
+  push(messagesRef, {
+    user: username,
+    color: userColor,
+    text,
+    time: new Date().toLocaleTimeString()
+  });
+
   msgInput.value="";
+  msgInput.focus(); // للحفاظ على التركيز بعد الإرسال
   remove(ref(db,"typing/"+userId));
 });
+
 
 // 🔹 الكتابة الحية مع تحسين التتبع
 msgInput.addEventListener("input", ()=>{
@@ -274,3 +282,4 @@ body.light #users li:hover{background:#ccc;}
 <ul id="users"></ul>
 </body>
 </html>
+
