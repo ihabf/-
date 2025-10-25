@@ -216,6 +216,11 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 #users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
 .dots{display:inline-block; font-family: monospace; color:#ffd166; animation:blinkDots 1s linear infinite;}
 @keyframes blinkDots{0%{opacity:0.2;}25%{opacity:0.5;}50%{opacity:1;}75%{opacity:0.5;}100%{opacity:0.2;}}
+
+/* تقليل ارتفاع الشات على الهواتف */
+@media screen and (max-width:600px){
+  #chat { max-height:60vh; }
+}
 </style>
 </head>
 <body>
