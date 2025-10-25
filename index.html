@@ -2,14 +2,13 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>💬 دردشة مؤقتة</title>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-// 🔹 إعداد Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
   authDomain: "kelta-gmae.firebaseapp.com",
@@ -31,11 +30,9 @@ const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA";
 
-// 🔹 إنشاء معرف فريد للجهاز
 let deviceId = localStorage.getItem("chat_device_id") || "dev_" + Math.floor(Math.random()*1e9);
 localStorage.setItem("chat_device_id", deviceId);
 
-// 🔹 اختيار اسم المستخدم
 async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
   const savedData = (await get(savedUsersRef)).val() || {};
@@ -57,41 +54,35 @@ async function chooseUsername() {
 
 const username = await chooseUsername();
 
-// 🔹 اختيار اللون وحفظه
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 const userColor = colors[Math.floor(Math.random()*colors.length)];
 await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
 
-// 🔹 إنشاء المستخدم
 const userId = "user_"+Math.floor(Math.random()*100000);
 const userRef = ref(db, "users/"+userId);
 await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now()});
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
-// عناصر الصفحة
 const chatBox=document.getElementById("chat");
 const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
-const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 
-// 🔹 عرض المستخدمين مع حالة الكتابة
 function renderUsers(users, typingUsers){
   userList.innerHTML = "";
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
     let typingAnim = "";
     if(typingUsers[id]){
-      typingAnim = `<span class="dots">⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏</span>`;
+      typingAnim = " ⌨️"; // علامة الكتابة بجانب الاسم
     }
-    li.innerHTML = `${u.name} ${typingAnim}`;
+    li.innerHTML = `${u.name}${typingAnim}`;
     li.style.borderRight = `6px solid ${u.color}`;
     userList.appendChild(li);
   });
 }
 
-// 🔹 استقبال المستخدمين والكتابة الحية
 let currentUsers = {};
 let currentTyping = {};
 onValue(usersRef, snapshot=>{
@@ -99,7 +90,6 @@ onValue(usersRef, snapshot=>{
   renderUsers(currentUsers, currentTyping);
 });
 
-// 🔹 إشعار عند دخول وخروج المستخدمين
 onChildAdded(usersRef, snapshot=>{
   const u = snapshot.val();
   if(u.name !== username){
@@ -121,7 +111,6 @@ onChildRemoved(usersRef, snapshot=>{
   chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
@@ -137,14 +126,12 @@ onChildAdded(messagesRef, snapshot=>{
 });
 get(messagesRef).then(()=>{ firstLoad=false; });
 
-// 🔹 تحديث فوري عند حذف الرسائل
 onValue(messagesRef, snapshot=>{
   if(!snapshot.exists()){
     chatBox.innerHTML = "";
   }
 });
 
-// 🔹 إرسال الرسائل
 form.addEventListener("submit", async e=>{
   e.preventDefault();
   const text=msgInput.value.trim();
@@ -162,7 +149,6 @@ form.addEventListener("submit", async e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-// 🔹 الكتابة الحية مع نقاط متحركة
 let typingTimeout;
 msgInput.addEventListener("input", ()=>{
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
@@ -181,62 +167,34 @@ onValue(typingRef,snapshot=>{
   });
   renderUsers(currentUsers, currentTyping);
 
+  // عرض حالة الكتابة مباشرة في الشات
+  document.querySelectorAll(".typing-message").forEach(el=>el.remove());
   const names = Object.entries(typingUsers)
     .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
     .map(([id,u])=>u.name);
-
-  const typingText = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
-  typingBox.textContent = typingText;
-
-  document.querySelectorAll(".typing-message").forEach(el=>el.remove());
   if(names.length){
     const div = document.createElement("div");
     div.className="message bubble other typing-message";
-    div.textContent = typingText;
+    div.style.background="#333";
+    div.textContent = names.join(" و ") + (names.length>1?" يكتبون الآن...":" يكتب الآن...");
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 });
 
-// 🔹 حقل كتابة ديناميكي للهواتف (يمكن تحريك الصفحة أثناء الكتابة)
-const mobileInput = document.createElement("input");
-mobileInput.placeholder = "اكتب من الهاتف...";
-mobileInput.style.position = "fixed";
-mobileInput.style.bottom = "80px";
-mobileInput.style.left = "50%";
-mobileInput.style.transform = "translateX(-50%)";
-mobileInput.style.width = "90%";
-mobileInput.style.maxWidth = "400px";
-mobileInput.style.padding = "10px";
-mobileInput.style.borderRadius = "6px";
-mobileInput.style.border = "none";
-mobileInput.style.outline = "none";
-mobileInput.style.background = "#222";
-mobileInput.style.color = "#eee";
-mobileInput.style.fontSize = "16px";
-document.body.appendChild(mobileInput);
-
-// عند الكتابة من الهاتف، يتم تحديث الداتا بيز
-let mobileTypingTimeout;
-mobileInput.addEventListener("input", ()=>{
-  set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
-  clearTimeout(mobileTypingTimeout);
-  mobileTypingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),2500);
-});
-
-// 🔹 مراقبة حالة الكتابة للهواتف وعرضها
-async function updateMobileTypingStatus() {
-  const snapshot = await get(typingRef);
-  const typingData = snapshot.val() || {};
-  const now = Date.now();
-  const mobileTypingNames = Object.entries(typingData)
-    .filter(([id,u])=>currentUsers[id]?.deviceId && now-(u.ts||0)<2500)
-    .map(([id,u])=>u.name);
-  if(mobileTypingNames.length){
-    typingBox.textContent = mobileTypingNames.join(" و ") + (mobileTypingNames.length>1?" يكتبون الآن...":" يكتب الآن...");
+// 🔹 تحريك الحقل فوق الكيبورد على الهواتف
+function adjustInputForMobile(){
+  if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){
+    msgInput.style.position = "fixed";
+    msgInput.style.bottom = "0";
+    msgInput.style.left = "0";
+    msgInput.style.width = "100%";
+    msgInput.style.borderRadius = "0";
+    msgInput.style.zIndex = "1000";
   }
 }
-setInterval(updateMobileTypingStatus, 1000);
+adjustInputForMobile();
+window.addEventListener("resize", adjustInputForMobile);
 
 </script>
 
@@ -248,17 +206,14 @@ h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
 .bubble {padding:8px 12px; border-radius:18px; max-width:80%; display:inline-block; }
 .self {align-self:flex-end; border-top-right-radius:0;}
 .other {align-self:flex-start; border-top-left-radius:0; border:1px solid #555;}
-.typing-message {font-style:italic; background:#333;}
-form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto; position:fixed; bottom:0; left:50%; transform:translateX(-50%); background:#0e0e0e; padding:10px; border-radius:8px; box-sizing:border-box;}
+.typing-message {font-style:italic;}
+form{width:95%;max-width:600px;display:flex;gap:5px;margin:0 auto; position:fixed; bottom:0; left:50%; transform:translateX(-50%); background:#0e0e0e; padding:10px; border-radius:8px; box-sizing:border-box;}
 input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
-#typing{font-size:14px;color:#ffd166;margin:5px;min-height:18px;}
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
 #users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
 .dots{display:inline-block; font-family: monospace; color:#ffd166; animation:blinkDots 1s linear infinite;}
 @keyframes blinkDots{0%{opacity:0.2;}25%{opacity:0.5;}50%{opacity:1;}75%{opacity:0.5;}100%{opacity:0.2;}}
-
-/* تقليل ارتفاع الشات على الهواتف */
 @media screen and (max-width:600px){
   #chat { max-height:60vh; }
 }
@@ -267,7 +222,6 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 <body>
 <h2>💬 دردشة مؤقتة</h2>
 <div id="chat"></div>
-<div id="typing"></div>
 <form id="chatForm">
   <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
   <button>إرسال</button>
