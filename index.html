@@ -9,7 +9,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import {
       getDatabase, ref, push, set, remove, onValue, onChildAdded,
-      onDisconnect, serverTimestamp
+      onDisconnect, serverTimestamp, get
     } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
     // ✅ إعداد Firebase
@@ -33,19 +33,31 @@
     const chatRef = ref(db, "chat");
     const typingRef = ref(db, "typing");
 
-    // ✅ التحقق من المستخدمين وحذف كل شيء إن لم يوجد أحد
+    // ✅ دالة التحقق من عدد المستخدمين الحقيقيين
     async function cleanupIfEmpty() {
-      const res = await fetch(`${firebaseConfig.databaseURL}/users.json`);
-      const data = await res.json();
-      if (!data || Object.keys(data).length === 0) {
-        console.log("🚮 لا يوجد أي مستخدم متصل — حذف جميع البيانات الآن...");
-        await fetch(`${firebaseConfig.databaseURL}/messages.json`, { method: "DELETE" });
-        await fetch(`${firebaseConfig.databaseURL}/chat.json`, { method: "DELETE" });
-        await fetch(`${firebaseConfig.databaseURL}/typing.json`, { method: "DELETE" });
+      try {
+        const snapshot = await get(usersRef);
+        const users = snapshot.val();
+
+        if (!users || Object.keys(users).length === 0) {
+          console.log("🚮 لا يوجد أي مستخدم متصل — حذف جميع البيانات الآن...");
+
+          await Promise.all([
+            remove(messagesRef),
+            remove(chatRef),
+            remove(typingRef)
+          ]);
+
+          console.log("✅ تم حذف جميع السجلات بنجاح");
+        } else {
+          console.log(`👥 عدد المستخدمين الحاليين: ${Object.keys(users).length}`);
+        }
+      } catch (err) {
+        console.error("❌ حدث خطأ أثناء محاولة الحذف:", err);
       }
     }
 
-    // فحص كل 10 ثوانٍ
+    // 🔁 فحص كل 10 ثوانٍ
     setInterval(cleanupIfEmpty, 10000);
 
     // 🔹 إنشاء هوية المستخدم
@@ -58,11 +70,10 @@
 
     // 🔹 تسجيل المستخدم في القاعدة
     const userRef = ref(db, "users/" + userId);
-    set(userRef, { name: username, color: userColor, joinedAt: serverTimestamp() });
+    await set(userRef, { name: username, color: userColor, joinedAt: serverTimestamp() });
 
-    // 🔹 حذف المستخدم عند الخروج
+    // 🔹 حذف المستخدم عند الخروج ثم فحص القائمة
     onDisconnect(userRef).remove().then(() => {
-      // بعد إزالة المستخدم، نتحقق لاحقًا إن كانت القائمة فارغة
       setTimeout(cleanupIfEmpty, 3000);
     });
 
