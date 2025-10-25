@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>💬 دردشة مؤقتة</title>
 
 <script type="module">
@@ -76,35 +76,146 @@ const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 
-// 🔹 أصوات دخول وخروج جديدة
-const joinSound = new Audio("https://www.soundjay.com/button/sounds/button-16.mp3");
-const leaveSound = new Audio("https://www.soundjay.com/button/sounds/button-10.mp3");
-let audioEnabled = false;
-document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
+// 🔹 عرض المستخدمين مع حالة الكتابة
+function renderUsers(users, typingUsers){
+  userList.innerHTML = "";
+  Object.entries(users).forEach(([id,u])=>{
+    const li = document.createElement("li");
+    let typingAnim = "";
+    if(typingUsers[id]){
+      typingAnim = `<span class="dots">⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏</span>`;
+    }
+    li.innerHTML = `${u.name} ${typingAnim}`;
+    li.style.borderRight = `6px solid ${u.color}`;
+    userList.appendChild(li);
+  });
+}
 
-// 🔹 تحسين تجربة الكيبورد على الهواتف
-msgInput.addEventListener("focus", ()=>{ 
-    setTimeout(()=>{ 
-        chatBox.scrollTop = chatBox.scrollHeight; 
-    }, 300); 
-});
-window.addEventListener("resize", ()=>{ 
-    chatBox.scrollTop = chatBox.scrollHeight; 
+// 🔹 استقبال المستخدمين والكتابة الحية
+let currentUsers = {};
+let currentTyping = {};
+onValue(usersRef, snapshot=>{
+  currentUsers = snapshot.val() || {};
+  renderUsers(currentUsers, currentTyping);
 });
 
-// باقي السكربت (عرض المستخدمين، الرسائل، الكتابة الحية، الأصوات) كما هو تماماً
+// 🔹 إشعار عند دخول وخروج المستخدمين
+onChildAdded(usersRef, snapshot=>{
+  const u = snapshot.val();
+  if(u.name !== username){
+    const div = document.createElement("div");
+    div.className="message bubble other";
+    div.style.borderColor=u.color;
+    div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+});
+onChildRemoved(usersRef, snapshot=>{
+  const u = snapshot.val();
+  const div = document.createElement("div");
+  div.className="message bubble other";
+  div.style.borderColor=u.color;
+  div.textContent = `❌ ${u.name} غادر الغرفة`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
+let firstLoad = true;
+onChildAdded(messagesRef, snapshot=>{
+  if(firstLoad) return;
+  const m = snapshot.val();
+  const div=document.createElement("div");
+  div.className="message bubble";
+  div.classList.add(m.user===username?"self":"other");
+  div.style.backgroundColor=m.user===username?m.color:"#222";
+  div.style.color=m.user===username?"#000":"#eee";
+  div.textContent = `${m.user}: ${m.text}`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+get(messagesRef).then(()=>{ firstLoad=false; });
+
+// 🔹 تحديث فوري عند حذف الرسائل
+onValue(messagesRef, snapshot=>{
+  if(!snapshot.exists()){
+    chatBox.innerHTML = "";
+  }
+});
+
+// 🔹 إرسال الرسائل
+form.addEventListener("submit", async e=>{
+  e.preventDefault();
+  const text=msgInput.value.trim();
+  if(!text) return;
+
+  if(text.startsWith("/delete") && username===ADMIN_NAME){
+    await remove(messagesRef);
+    msgInput.value="";
+    return;
+  }
+
+  const msgRef=push(messagesRef);
+  await set(msgRef,{user:username,color:userColor,text,time:new Date().toLocaleTimeString()});
+  msgInput.value="";
+  remove(ref(db,"typing/"+userId));
+});
+
+// 🔹 الكتابة الحية مع نقاط متحركة
+let typingTimeout;
+msgInput.addEventListener("input", ()=>{
+  set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),2500);
+});
+
+onValue(typingRef,snapshot=>{
+  const typingUsers = snapshot.val() || {};
+  currentTyping = {};
+  const now = Date.now();
+  Object.entries(typingUsers).forEach(([id,u])=>{
+    if(u.name !== username && now - (u.ts||0) < 2500){
+      currentTyping[id] = true;
+    }
+  });
+  renderUsers(currentUsers, currentTyping);
+
+  const names = Object.entries(typingUsers)
+    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
+    .map(([id,u])=>u.name);
+
+  const typingText = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
+  typingBox.textContent = typingText;
+
+  document.querySelectorAll(".typing-message").forEach(el=>el.remove());
+  if(names.length){
+    const div = document.createElement("div");
+    div.className="message bubble other typing-message";
+    div.textContent = typingText;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+});
 </script>
 
 <style>
 body { font-family: "Cairo", sans-serif; background:#0e0e0e; color:#eee; margin:0; padding:0; text-align:center; display:flex; flex-direction:column; align-items:center; height:100vh; }
 h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
-#chat { flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box; }
-form{width:95%;max-width:600px;display:flex;gap:5px;margin:0 auto 5px;}
+#chat { flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box; display:flex; flex-direction:column; gap:4px;}
+.message {margin:2px 0; line-height:1.4; word-wrap:break-word; }
+.bubble {padding:8px 12px; border-radius:18px; max-width:80%; display:inline-block; }
+.self {align-self:flex-end; border-top-right-radius:0;}
+.other {align-self:flex-start; border-top-left-radius:0; border:1px solid #555;}
+.typing-message {font-style:italic; background:#333;}
+form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
 input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
 #typing{font-size:14px;color:#ffd166;margin:5px;min-height:18px;}
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
 #users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
+.dots{display:inline-block; font-family: monospace; color:#ffd166; animation:blinkDots 1s linear infinite;}
+@keyframes blinkDots{0%{opacity:0.2;}25%{opacity:0.5;}50%{opacity:1;}75%{opacity:0.5;}100%{opacity:0.2;}}
 </style>
 </head>
 <body>
