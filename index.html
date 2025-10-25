@@ -1,214 +1,109 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>لعبة كيلتا 🧠⚡</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: "Tahoma", sans-serif;
-      background: #111;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-
-    .chat-container {
-      flex: 1;
-      display: flex;
-      flex-direction: row;
-      overflow: hidden;
-    }
-
-    #messages {
-      flex: 3;
-      padding: 10px;
-      overflow-y: auto;
-      background: #1a1a1a;
-      border-left: 1px solid #333;
-      transition: height 0.3s;
-    }
-
-    #users {
-      flex: 1;
-      background: #222;
-      padding: 10px;
-      border-right: 1px solid #333;
-      overflow-y: auto;
-    }
-
-    .input-area {
-      display: flex;
-      padding: 10px;
-      background: #000;
-      border-top: 1px solid #333;
-      position: sticky;
-      bottom: 0;
-      z-index: 10;
-    }
-
-    input {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      outline: none;
-      border-radius: 5px;
-      font-size: 16px;
-    }
-
-    button {
-      margin-left: 10px;
-      padding: 10px 20px;
-      border: none;
-      background: #00bcd4;
-      color: #fff;
-      border-radius: 5px;
-      font-size: 16px;
-    }
-
-    @media (max-width: 700px) {
-      .chat-container {
-        flex-direction: column;
-      }
-
-      #messages {
-        flex: none;
-        height: 55vh;
-      }
-
-      #users {
-        flex: none;
-        width: 100%;
-        order: 3;
-        background: #222;
-        border-top: 1px solid #333;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        font-size: 14px;
-        padding: 6px;
-        overflow-x: auto;
-        white-space: nowrap;
-      }
-
-      .input-area {
-        order: 2;
-        position: sticky;
-        bottom: 0;
-      }
-    }
-  </style>
-</head>
-<body>
-
-  <div class="chat-container">
-    <div id="users"></div>
-    <div id="messages"></div>
-  </div>
-
-  <div class="input-area">
-    <input type="text" id="messageInput" placeholder="اكتب هنا...">
-    <button id="sendBtn">إرسال</button>
-  </div>
-
+  <title>دردشة مؤقتة</title>
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import {
-      getDatabase,
-      ref,
-      push,
-      set,
-      onValue,
-      onChildAdded,
-      onDisconnect
-    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getDatabase, ref, push, set, remove, onValue, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
+    // إعداد Firebase
     const firebaseConfig = {
-      apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
-      authDomain: "kelta-gmae.firebaseapp.com",
-      databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
-      projectId: "kelta-gmae",
-      storageBucket: "kelta-gmae.firebasestorage.app",
-      messagingSenderId: "247464874751",
-      appId: "1:247464874751:web:779a3120e6b422fdee72ca",
-      measurementId: "G-6C8HGRKLHS"
+      apiKey: "AIzaSy...",
+      authDomain: "example.firebaseapp.com",
+      databaseURL: "https://example-default-rtdb.firebaseio.com",
+      projectId: "example",
+      storageBucket: "example.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abc123"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // المراجع
     const usersRef = ref(db, "users");
     const messagesRef = ref(db, "messages");
 
-    // اسم المستخدم — إذا ترك فارغًا يكون "مجهول"
-    let username = prompt("اكتب اسمك:") || "مجهول";
-    username = username.trim() || "مجهول";
+    // 🔹 توليد معرف المستخدم
+    const userId = "user_" + Math.floor(Math.random() * 100000);
 
-    // إضافة المستخدم بمفتاح فريد وحذف تلقائي عند الخروج
-    const userRef = push(usersRef);
-    set(userRef, username);
+    // 🔹 طلب اسم المستخدم
+    let username = prompt("اكتب اسمك:") || "مجهول";
+
+    // 🔹 إنشاء سجل المستخدم في قاعدة البيانات
+    const userRef = ref(db, "users/" + userId);
+    set(userRef, { name: username, joinedAt: serverTimestamp() });
+
+    // 🔹 إزالة المستخدم عند الخروج
     onDisconnect(userRef).remove();
 
-    // إنشاء مجلد خاص برسائل هذا المستخدم لتسهيل الحذف عند الخروج
-    const userMessagesRef = push(messagesRef); // مفتاح جديد لكل مستخدم
+    // 🔹 مراقبة عدد المستخدمين
+    onValue(usersRef, (snapshot) => {
+      const users = snapshot.val() || {};
+      const userList = document.getElementById("users");
+      userList.innerHTML = "";
+      Object.values(users).forEach((u) => {
+        const li = document.createElement("li");
+        li.textContent = u.name;
+        userList.appendChild(li);
+      });
 
-    onDisconnect(userMessagesRef).remove();
+      // 🧹 إذا لم يبق أي مستخدم، احذف الشات تلقائيًا
+      if (Object.keys(users).length === 0) {
+        set(messagesRef, null);
+      }
+    });
 
-    // عرض المستخدمين
-    onValue(usersRef, snapshot => {
-      const usersDiv = document.getElementById("users");
-      usersDiv.innerHTML = "<strong>👥 اللاعبين:</strong> ";
-      snapshot.forEach(child => {
-        usersDiv.innerHTML += `<span style='margin:0 6px;'>${child.val()}</span>`;
+    // 🔹 إرسال رسالة جديدة
+    const form = document.getElementById("chatForm");
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const msgInput = document.getElementById("msg");
+      const text = msgInput.value.trim();
+      if (text !== "") {
+        const msgRef = push(messagesRef);
+        set(msgRef, {
+          user: username,
+          text,
+          time: new Date().toLocaleTimeString()
+        });
+        msgInput.value = "";
+      }
+    });
+
+    // 🔹 عرض الرسائل في الصفحة
+    onValue(messagesRef, (snapshot) => {
+      const messages = snapshot.val() || {};
+      const chatBox = document.getElementById("chat");
+      chatBox.innerHTML = "";
+      Object.values(messages).forEach((m) => {
+        const div = document.createElement("div");
+        div.textContent = `${m.user}: ${m.text}`;
+        chatBox.appendChild(div);
       });
     });
-
-    // إرسال الرسائل
-    const inputEl = document.getElementById("messageInput");
-    const sendBtn = document.getElementById("sendBtn");
-
-    function sendMessage() {
-      const text = inputEl.value.trim();
-      if (!text) return;
-      // كل رسالة تنشأ تحت مفتاح المستخدم لضمان حذفها عند الخروج
-      push(userMessagesRef, { name: username, text });
-      inputEl.value = "";
-    }
-
-    sendBtn.onclick = sendMessage;
-    inputEl.addEventListener("keypress", e => {
-      if (e.key === "Enter") sendMessage();
-    });
-
-    // عرض الرسائل + البوت
-    onChildAdded(messagesRef, snapshot => {
-      const msgObj = snapshot.val();
-      const messagesDiv = document.getElementById("messages");
-
-      // msgObj قد يكون مجلد لكل مستخدم
-      for (const key in msgObj) {
-        const msg = msgObj[key];
-        messagesDiv.innerHTML += `<p><strong>${msg.name}:</strong> ${msg.text}</p>`;
-      }
-
-      messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
-
-      // بوت عند كتابة "طش"
-      for (const key in msgObj) {
-        const msg = msgObj[key];
-        if (msg.text && msg.text.trim() === "طش") sendBotMessage();
-      }
-    });
-
-    // بوت كيلتا
-    function sendBotMessage() {
-      const words = ["كلمة", "سرعة", "ذكاء", "تحدي", "كتابة", "إجابة", "لعبة", "مهارة", "منافسة"];
-      const randomWords = Array.from({ length: 7 }, () => words[Math.floor(Math.random() * words.length)]);
-      push(userMessagesRef, { name: "🤖 البوت", text: randomWords.join(" ") });
-    }
   </script>
 
+  <style>
+    body { font-family: sans-serif; background: #111; color: #eee; direction: rtl; text-align: center; }
+    #chat { height: 200px; overflow-y: auto; border: 1px solid #444; padding: 10px; margin: 10px auto; width: 90%; background: #222; }
+    #users { list-style: none; padding: 0; }
+    #users li { background: #333; margin: 5px; padding: 5px; border-radius: 5px; }
+    form { margin-top: 10px; }
+    input { padding: 5px; border-radius: 5px; border: none; }
+  </style>
+</head>
+<body>
+  <h2>دردشة مؤقتة</h2>
+  <div id="chat"></div>
+
+  <form id="chatForm">
+    <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
+    <button>إرسال</button>
+  </form>
+
+  <h3>المتصلون الآن:</h3>
+  <ul id="users"></ul>
 </body>
 </html>
