@@ -34,36 +34,40 @@ const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA"; // اسم المدير
 
-// 🔹 إنشاء مستخدم مع منع تكرار الاسم
-let username = prompt("اكتب اسمك:")?.trim() || "مجهول";
+// 🔹 استرجاع الاسم من localStorage إذا موجود
+let username = localStorage.getItem("chat_username") || prompt("اكتب اسمك:")?.trim() || "مجهول";
 
-// فحص التكرار داخل الغرفة وداخل المستخدمين المحفوظين
-async function isNameTaken(name) {
+// 🔹 منع تكرار الاسم داخل الغرفة (المدير دائمًا مسموح له)
+async function checkName(name) {
   const [usersSnap, savedSnap] = await Promise.all([get(usersRef), get(savedUsersRef)]);
   const usersData = usersSnap.val() || {};
   const savedData = savedSnap.val() || {};
   
   const inRoom = Object.values(usersData).some(u => u.name === name);
   const inSaved = savedData[name] ? true : false;
-  return inRoom || inSaved;
+
+  return (inRoom && name !== ADMIN_NAME) || (inSaved && name !== ADMIN_NAME);
 }
 
-// حلقة التحقق من الاسم
-while(await isNameTaken(username)) {
+// حلقة للتحقق من الاسم
+while(await checkName(username)) {
   username = prompt("❌ هذا الاسم مستخدم! اختر اسمًا آخر:")?.trim() || "مجهول";
 }
 
-// اختيار لون
+// حفظ الاسم في localStorage
+localStorage.setItem("chat_username", username);
+
+// اختيار لون المستخدم
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 let userColor = colors[Math.floor(Math.random() * colors.length)];
 
-// استرجاع اللون إذا محفوظ
+// استرجاع اللون إذا محفوظ مسبقًا
 const savedSnap = await get(savedUsersRef);
 const savedData = savedSnap.val() || {};
 if (savedData[username]) userColor = savedData[username].color;
 else await set(ref(db, "savedUsers/" + username), { color: userColor });
 
-// تسجيل المستخدم
+// 🔹 تسجيل المستخدم
 const userId = "user_" + Math.floor(Math.random() * 100000);
 const userRef = ref(db, "users/" + userId);
 await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now() });
@@ -149,7 +153,7 @@ if (username === ADMIN_NAME) {
   delBtn.onclick = async () => {
     if (confirm("هل تريد حذف جميع الرسائل؟")) {
       await remove(messagesRef);
-      chatBox.innerHTML = ""; // تحديث الواجهة فورًا
+      chatBox.innerHTML = "";
       alert("✅ تم حذف جميع الرسائل!");
     }
   };
