@@ -7,7 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -24,50 +24,97 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// 🔹 المسارات
-const usersRef = ref(db, "tempUsers");
-const messagesRef = ref(db, "tempMessages");
-const typingRef = ref(db, "tempTyping");
+const usersRef = ref(db, "users");
+const messagesRef = ref(db, "messages");
+const typingRef = ref(db, "typing");
+const savedUsersRef = ref(db, "savedUsers");
 
-// 🔹 معرف فريد للجلسة
-const sessionId = "sess_" + Math.floor(Math.random() * 1e9);
+const ADMIN_NAME = "KeltA"; // اسم المدير
 
-// 🔹 معرف فريد للمستخدم
-const userId = "user_" + Math.floor(Math.random() * 1e9);
-
-// 🔹 اختيار الاسم
-let username = localStorage.getItem("chat_username_temp");
-if (!username) {
-  username = prompt("اكتب اسمك:")?.trim() || "مجهول";
-  localStorage.setItem("chat_username_temp", username);
+// 🔹 إنشاء معرف فريد للجهاز
+let deviceId = localStorage.getItem("chat_device_id");
+if (!deviceId) {
+  deviceId = "dev_" + Math.floor(Math.random() * 1e9);
+  localStorage.setItem("chat_device_id", deviceId);
 }
 
-// 🔹 اختيار لون
+// 🔹 اختيار الاسم مع حفظه للجهاز وربطه بالـ deviceId
+async function chooseUsername() {
+  let username = localStorage.getItem("chat_username");
+  const savedSnap = await get(savedUsersRef);
+  const savedData = savedSnap.val() || {};
+
+  if (username && savedData[username]?.deviceId === deviceId) {
+    return username;
+  }
+
+  let valid = false;
+  while (!valid) {
+    username = prompt("اكتب اسمك:")?.trim();
+    if (!username) { alert("⚠️ يجب إدخال اسم صالح للدخول!"); continue; }
+
+    const usersSnap = await get(usersRef);
+    const usersData = usersSnap.val() || {};
+    const nameTaken = Object.values(usersData).some(u => u.name === username);
+    const nameSavedElsewhere = savedData[username] && savedData[username].deviceId !== deviceId;
+
+    if (nameTaken || nameSavedElsewhere) {
+      alert("❌ هذا الاسم مستخدم بالفعل أو محفوظ لجهاز آخر! اختر اسمًا آخر.");
+      continue;
+    }
+    valid = true;
+  }
+
+  localStorage.setItem("chat_username", username);
+  return username;
+}
+
+const username = await chooseUsername();
+
+// 🔹 اختيار اللون
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
-const userColor = colors[Math.floor(Math.random() * colors.length)];
+let userColor = colors[Math.floor(Math.random() * colors.length)];
 
-// 🔹 إضافة المستخدم للقائمة المؤقتة
-const userRef = ref(db, `tempUsers/${userId}`);
-await set(userRef, { name: username, color: userColor, session: sessionId, online: true });
+// حفظ اللون مع deviceId
+await set(ref(db, "savedUsers/" + username), { color: userColor, deviceId });
+
+// 🔹 إنشاء المستخدم في قاعدة البيانات
+const userId = "user_" + Math.floor(Math.random() * 100000);
+const userRef = ref(db, "users/" + userId);
+await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now() });
 onDisconnect(userRef).remove();
-setInterval(() => update(userRef, { online: true }), 5000);
+setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-// 🔹 عرض المستخدمين المتصلين بنفس الجلسة
+// 🔹 حذف الرسائل تلقائيًا إذا لم يبق أي مستخدم آخر لمدة 5 ثوانٍ
+let deleteTimeout;
 onValue(usersRef, snapshot => {
-  const allUsers = snapshot.val() || {};
+  const users = snapshot.val() || {};
+
+  // عرض المستخدمين
   const userList = document.getElementById("users");
   userList.innerHTML = "";
-  Object.values(allUsers).forEach(u => {
-    if(u.session === sessionId){
-      const li = document.createElement("li");
-      li.textContent = u.name;
-      li.style.borderRight = `6px solid ${u.color}`;
-      userList.appendChild(li);
-    }
+  Object.values(users).forEach(u => {
+    const li = document.createElement("li");
+    li.textContent = u.name;
+    li.style.borderRight = `6px solid ${u.color}`;
+    userList.appendChild(li);
   });
+
+  // التحقق من وجود مستخدمين آخرين
+  const otherUsers = Object.keys(users).filter(uid => uid !== userId);
+  clearTimeout(deleteTimeout);
+  if (otherUsers.length === 0) {
+    deleteTimeout = setTimeout(async () => {
+      const messagesSnap = await get(messagesRef);
+      if (messagesSnap.exists()) {
+        await remove(messagesRef);
+        console.log("🧹 تم حذف جميع الرسائل تلقائيًا لعدم وجود مستخدمين آخرين");
+      }
+    }, 5000);
+  }
 });
 
-// 🔹 إرسال الرسائل
+// 🔹 التعامل مع إرسال الرسائل
 const form = document.getElementById("chatForm");
 const msgInput = document.getElementById("msg");
 const chatBox = document.getElementById("chat");
@@ -76,38 +123,42 @@ const typingBox = document.getElementById("typing");
 form.addEventListener("submit", async e => {
   e.preventDefault();
   const text = msgInput.value.trim();
-  if(!text) return;
+  if (!text) return;
+
+  if (text.startsWith("/delete") && username === ADMIN_NAME) {
+    await remove(messagesRef);
+    chatBox.innerHTML = "";
+    msgInput.value = "";
+    alert("✅ تم حذف جميع الرسائل بواسطة المدير!");
+    return;
+  }
 
   const msgRef = push(messagesRef);
-  await set(msgRef, { user: username, color: userColor, text, session: sessionId, timestamp: Date.now() });
+  await set(msgRef, { user: username, color: userColor, text, time: new Date().toLocaleTimeString() });
   msgInput.value = "";
-  remove(ref(db, `tempTyping/${userId}`));
+  remove(ref(db, "typing/" + userId));
 });
 
-// 🔹 استقبال الرسائل الجديدة بنفس الجلسة
+// 🔹 عرض الرسائل الجديدة
 onChildAdded(messagesRef, snapshot => {
   const m = snapshot.val();
-  if(m.session === sessionId){
-    const div = document.createElement("div");
-    div.className = "message";
-    div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
+  const div = document.createElement("div");
+  div.className = "message";
+  div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 // 🔹 الكتابة الحية
 msgInput.addEventListener("input", () => {
-  set(ref(db, `tempTyping/${userId}`), { name: username, session: sessionId });
+  set(ref(db, "typing/" + userId), { name: username });
   clearTimeout(window.typingTimeout);
-  window.typingTimeout = setTimeout(() => remove(ref(db, `tempTyping/${userId}`)), 2000);
+  window.typingTimeout = setTimeout(() => remove(ref(db, "typing/" + userId)), 2000);
 });
 
 onValue(typingRef, snapshot => {
   const typingUsers = snapshot.val() || {};
-  const names = Object.values(typingUsers)
-    .filter(u => u.session === sessionId && u.name !== username)
-    .map(u => u.name);
+  const names = Object.values(typingUsers).map(u => u.name).filter(n => n !== username);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
 </script>
