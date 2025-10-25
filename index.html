@@ -188,12 +188,13 @@ onValue(typingRef, snapshot=>{
 // 🔹 تحريك الحقل فوق الكيبورد على الهواتف
 function adjustInputForMobile(){
   if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){
-    msgInput.style.position = "fixed";
-    msgInput.style.bottom = "0";
-    msgInput.style.left = "0";
-    msgInput.style.width = "100%";
-    msgInput.style.borderRadius = "0";
-    msgInput.style.zIndex = "1000";
+    msgInput.style.position = "relative"; // أو احذف هذا السطر بالكامل
+msgInput.style.bottom = "";
+msgInput.style.left = "";
+msgInput.style.width = "auto"; // أو اتركه كما هو إذا أردت
+msgInput.style.borderRadius = "6px"; // كما في باقي الحقول
+msgInput.style.zIndex = "auto";
+
   }
 }
 adjustInputForMobile();
@@ -234,3 +235,4 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 <ul id="users"></ul>
 </body>
 </html>
+
