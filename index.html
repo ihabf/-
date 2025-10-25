@@ -89,7 +89,7 @@ function renderUsers(users, typingUsers){
     const li = document.createElement("li");
     let typingAnim = "";
     if(typingUsers[id]){
-      typingAnim = `<span class="dots">…</span>`;
+      typingAnim = `<span class="dots">⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏</span>`; // نقاط متحركة بشكل عصري
     }
     li.innerHTML = `${u.name} ${typingAnim}`;
     li.style.borderRight = `6px solid ${u.color}`;
@@ -172,6 +172,7 @@ form.addEventListener("submit", async e=>{
 // 🔹 الكتابة الحية مع نقاط متحركة
 let typingTimeout;
 msgInput.addEventListener("input", ()=>{
+  // 🔹 حل مشكلة الهاتف: نرسل كل إدخال حرفياً ليظهر التحديث في الوقت الحقيقي
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
   clearTimeout(typingTimeout);
   typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),2500);
@@ -221,8 +222,8 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 #typing{font-size:14px;color:#ffd166;margin:5px;min-height:18px;}
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
 #users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
-.dots{display:inline-block;animation:blink 1s infinite;}
-@keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
+.dots{display:inline-block; animation:spin 1s linear infinite; font-family: monospace; color:#ffd166;}
+@keyframes spin{0%{content:"⠋";}10%{content:"⠙";}20%{content:"⠹";}30%{content:"⠸";}40%{content:"⠼";}50%{content:"⠴";}60%{content:"⠦";}70%{content:"⠧";}80%{content:"⠇";}90%{content:"⠏";}100%{content:"⠋";}}
 </style>
 </head>
 <body>
