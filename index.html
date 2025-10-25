@@ -197,6 +197,47 @@ onValue(typingRef,snapshot=>{
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 });
+
+// 🔹 حقل كتابة ديناميكي للهواتف (يمكن تحريك الصفحة أثناء الكتابة)
+const mobileInput = document.createElement("input");
+mobileInput.placeholder = "اكتب من الهاتف...";
+mobileInput.style.position = "fixed";
+mobileInput.style.bottom = "80px";
+mobileInput.style.left = "50%";
+mobileInput.style.transform = "translateX(-50%)";
+mobileInput.style.width = "90%";
+mobileInput.style.maxWidth = "400px";
+mobileInput.style.padding = "10px";
+mobileInput.style.borderRadius = "6px";
+mobileInput.style.border = "none";
+mobileInput.style.outline = "none";
+mobileInput.style.background = "#222";
+mobileInput.style.color = "#eee";
+mobileInput.style.fontSize = "16px";
+document.body.appendChild(mobileInput);
+
+// عند الكتابة من الهاتف، يتم تحديث الداتا بيز
+let mobileTypingTimeout;
+mobileInput.addEventListener("input", ()=>{
+  set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
+  clearTimeout(mobileTypingTimeout);
+  mobileTypingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),2500);
+});
+
+// 🔹 مراقبة حالة الكتابة للهواتف وعرضها
+async function updateMobileTypingStatus() {
+  const snapshot = await get(typingRef);
+  const typingData = snapshot.val() || {};
+  const now = Date.now();
+  const mobileTypingNames = Object.entries(typingData)
+    .filter(([id,u])=>currentUsers[id]?.deviceId && now-(u.ts||0)<2500)
+    .map(([id,u])=>u.name);
+  if(mobileTypingNames.length){
+    typingBox.textContent = mobileTypingNames.join(" و ") + (mobileTypingNames.length>1?" يكتبون الآن...":" يكتب الآن...");
+  }
+}
+setInterval(updateMobileTypingStatus, 1000);
+
 </script>
 
 <style>
