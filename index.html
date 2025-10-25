@@ -57,6 +57,11 @@ async function chooseUsername() {
 
 const username = await chooseUsername();
 
+// 🔹 اختيار اللون وحفظه
+const colors = ["#ff6b6b","#feca57","#ff9ff3","#48dbfb","#1dd1a1","#5f27cd","#ee5253","#0abde3"];
+const userColor = colors[Math.floor(Math.random()*colors.length)];
+await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
+
 // 🔹 اختيار صورة افاتار
 let avatarUrl = localStorage.getItem("chat_avatar") || "";
 function chooseAvatar(file) {
@@ -72,7 +77,7 @@ function chooseAvatar(file) {
 // 🔹 إنشاء المستخدم
 const userId = "user_"+Math.floor(Math.random()*100000);
 const userRef = ref(db, "users/"+userId);
-await set(userRef,{name:username,color:"white",online:true,lastSeen:Date.now(),avatar:avatarUrl});
+await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now(),avatar:avatarUrl});
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
@@ -97,8 +102,7 @@ function renderUsers(users, typingUsers){
   userList.innerHTML = "";
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
-    const nameColor = u.name === ADMIN_NAME ? "#8e44ad" : "#fff";
-    li.innerHTML = `${u.avatar?`<img src="${u.avatar}" class="avatar">`:""}<span style="color:${nameColor}">${u.name}</span> ${typingUsers[id]?"<span class='dots'>…</span>":""}`;
+    li.innerHTML = `${u.avatar?`<img src="${u.avatar}" class="avatar">`:""} <span style="color:${u.color}">${u.name}</span> ${typingUsers[id]?"<span class='dots'>…</span>":""}`;
     userList.appendChild(li);
   });
 }
@@ -117,7 +121,7 @@ onChildAdded(usersRef, snapshot=>{
   if(u.name !== username){
     const div = document.createElement("div");
     div.className="message system";
-    div.innerHTML = `${u.avatar?`<img src="${u.avatar}" class="avatar">`:""} ✅ <span style="color:${u.name===ADMIN_NAME?"#8e44ad":"#fff"}">${u.name}</span> انضم إلى الغرفة`;
+    div.innerHTML = `${u.avatar?`<img src="${u.avatar}" class="avatar">`:""} ✅ <span style="color:${u.name===ADMIN_NAME?"#8e44ad":u.color}">${u.name}</span> انضم إلى الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
     if(audioEnabled) soundJoin.play();
@@ -127,7 +131,7 @@ onChildRemoved(usersRef, snapshot=>{
   const u = snapshot.val();
   const div = document.createElement("div");
   div.className="message system leave";
-  div.innerHTML = `${u.avatar?`<img src="${u.avatar}" class="avatar">`:""} ❌ <span style="color:${u.name===ADMIN_NAME?"#8e44ad":"#fff"}">${u.name}</span> غادر الغرفة`;
+  div.innerHTML = `${u.avatar?`<img src="${u.avatar}" class="avatar">`:""} ❌ <span style="color:${u.name===ADMIN_NAME?"#8e44ad":u.color}">${u.name}</span> غادر الغرفة`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
   if(audioEnabled) soundLeave.play();
@@ -138,10 +142,9 @@ let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
   const m = snapshot.val();
-  const nameColor = m.user===ADMIN_NAME?"#8e44ad":"#fff";
   const div=document.createElement("div");
   div.className="message "+(m.user===username?"mine":"other");
-  div.innerHTML=`${m.avatar?`<img src="${m.avatar}" class="avatar">`:""} <strong style="color:${nameColor}">${m.user}:</strong> ${m.text}`;
+  div.innerHTML=`${m.avatar?`<img src="${m.avatar}" class="avatar">`:""} <strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
@@ -152,7 +155,7 @@ onValue(messagesRef, snapshot=>{
   if(!snapshot.exists()) chatBox.innerHTML = "";
 });
 
-// 🔹 إرسال الرسائل
+// 🔹 إرسال الرسائل بسرعة قصوى
 form.addEventListener("submit", e=>{
   e.preventDefault();
   const text = msgInput.value.trim();
@@ -166,7 +169,7 @@ form.addEventListener("submit", e=>{
 
   push(messagesRef, {
     user: username,
-    color:"white",
+    color: userColor,
     text,
     avatar: avatarUrl,
     time: new Date().toLocaleTimeString()
@@ -214,9 +217,7 @@ avatarInput.addEventListener("change", e=>{
 
 <style>
 body {
-  font-family:"Cairo",sans-serif;
-  background:#181818;
-  color:#ddd;
+  font-family:"Cairo",sans-serif; background:#181818; color:#ddd;
   margin:0; padding:0; display:flex; flex-direction:column;
   align-items:center; height:100vh; transition:0.3s;
 }
@@ -278,7 +279,6 @@ button:hover{background:#1dd1a1;}
   background:#48dbfb; color:#fff; border:none; border-radius:8px; cursor:pointer;
 }
 
-/* 🔹 تعديل زر الأفاتار */
 #avatarInput{
   position:fixed;
   top:10px;
