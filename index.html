@@ -13,7 +13,7 @@
 
     // إعداد Firebase
     const firebaseConfig = {
-      apiKey: "AIzaSy...", // ⚠️ ضع بياناتك هنا
+      apiKey: "AIzaSy...", // ⚠️ ضع بياناتك الحقيقية هنا
       authDomain: "example.firebaseapp.com",
       databaseURL: "https://example-default-rtdb.firebaseio.com",
       projectId: "example",
@@ -28,6 +28,7 @@
     // المراجع
     const usersRef = ref(db, "users");
     const messagesRef = ref(db, "messages");
+    const typingRef = ref(db, "typing");
 
     // توليد معرف المستخدم وطلب الاسم
     const userId = "user_" + Math.floor(Math.random() * 100000);
@@ -42,20 +43,21 @@
     set(userRef, { name: username, color: userColor, joinedAt: serverTimestamp() });
     onDisconnect(userRef).remove();
 
-    // مراقبة المستخدمين
+    // مراقبة المستخدمين وتحديث القائمة
     onValue(usersRef, (snapshot) => {
       const users = snapshot.val() || {};
       const userList = document.getElementById("users");
       userList.innerHTML = "";
-      Object.values(users).forEach((u) => {
-        const li = document.createElement("li");
-        li.textContent = u.name;
-        li.style.borderRight = `6px solid ${u.color}`;
-        userList.appendChild(li);
-      });
 
-      // حذف الشات إذا لم يبق أي مستخدم
-      if (Object.keys(users).length === 0) {
+      if (Object.keys(users).length > 0) {
+        Object.values(users).forEach((u) => {
+          const li = document.createElement("li");
+          li.textContent = u.name;
+          li.style.borderRight = `6px solid ${u.color}`;
+          userList.appendChild(li);
+        });
+      } else {
+        // لا يوجد أحد متصل -> حذف الرسائل
         set(messagesRef, null);
       }
     });
@@ -64,6 +66,7 @@
     const form = document.getElementById("chatForm");
     const msgInput = document.getElementById("msg");
     const chatBox = document.getElementById("chat");
+    const typingBox = document.getElementById("typing");
 
     form.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -77,17 +80,41 @@
           time: new Date().toLocaleTimeString()
         });
         msgInput.value = "";
+        remove(ref(db, "typing/" + userId)); // عند الإرسال توقف "يكتب الآن"
       }
     });
 
-    // عرض الرسائل بشكل حي (onChildAdded أسرع من onValue)
+    // عرض الرسائل فور وصولها
     onChildAdded(messagesRef, (snapshot) => {
       const m = snapshot.val();
       const div = document.createElement("div");
       div.className = "message";
       div.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
       chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight; // تمرير تلقائي للأسفل
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    // 🔹 ميزة "يكتب الآن..."
+    msgInput.addEventListener("input", () => {
+      // أبلغ عن حالة الكتابة
+      set(ref(db, "typing/" + userId), { name: username });
+      // احذفها بعد ثانيتين من آخر ضغط
+      clearTimeout(window.typingTimeout);
+      window.typingTimeout = setTimeout(() => {
+        remove(ref(db, "typing/" + userId));
+      }, 2000);
+    });
+
+    // عرض من يكتب الآن
+    onValue(typingRef, (snapshot) => {
+      const typingUsers = snapshot.val() || {};
+      const names = Object.values(typingUsers)
+        .map((u) => u.name)
+        .filter((n) => n !== username); // لا تُظهر نفسك
+
+      typingBox.textContent = names.length
+        ? `${names.join(" و ")} ${names.length > 1 ? "يكتبون الآن..." : "يكتب الآن..."}`
+        : "";
     });
   </script>
 
@@ -148,9 +175,7 @@
       transition: 0.2s;
     }
 
-    button:hover {
-      background: #04b48a;
-    }
+    button:hover { background: #04b48a; }
 
     #users {
       list-style: none;
@@ -166,6 +191,15 @@
       border-radius: 6px;
       text-align: right;
       font-weight: 600;
+      border-right: 6px solid #666;
+    }
+
+    #typing {
+      font-size: 14px;
+      color: #aaa;
+      margin: 5px;
+      height: 18px;
+      min-height: 18px;
     }
   </style>
 </head>
@@ -173,6 +207,8 @@
   <h2>💬 دردشة مؤقتة</h2>
 
   <div id="chat"></div>
+
+  <div id="typing"></div> <!-- يكتب الآن -->
 
   <form id="chatForm">
     <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
@@ -182,4 +218,4 @@
   <h3>المتصلون الآن:</h3>
   <ul id="users"></ul>
 </body>
-</html>
+  </html>
