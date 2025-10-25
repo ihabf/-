@@ -7,7 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -75,7 +75,7 @@ const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 
-// عرض المستخدمين
+// 🔹 عرض المستخدمين
 onValue(usersRef, snapshot=>{
   const users = snapshot.val() || {};
   const userList=document.getElementById("users");
@@ -88,20 +88,22 @@ onValue(usersRef, snapshot=>{
   });
 });
 
-// استعراض الرسائل بشكل كامل عند أي تغيير
-onValue(messagesRef, snapshot=>{
-  const messages = snapshot.val() || {};
-  chatBox.innerHTML = "";
-  Object.values(messages).forEach(m=>{
-    const div=document.createElement("div");
-    div.className="message";
-    div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-    chatBox.appendChild(div);
-  });
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم + حذف فوري عند /delete
+let firstLoad = true;
+onChildAdded(messagesRef, snapshot=>{
+  if(firstLoad) return; // تجاهل الرسائل القديمة عند الدخول
+  const m = snapshot.val();
+  const div=document.createElement("div");
+  div.className="message";
+  div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// إرسال الرسائل
+// إعادة تفعيل firstLoad بعد تحميل الرسائل القديمة
+get(messagesRef).then(()=>{ firstLoad=false; });
+
+// 🔹 إرسال الرسائل
 form.addEventListener("submit", async e=>{
   e.preventDefault();
   const text=msgInput.value.trim();
@@ -109,7 +111,8 @@ form.addEventListener("submit", async e=>{
 
   // حذف الرسائل لجميع المستخدمين
   if(text.startsWith("/delete") && username===ADMIN_NAME){
-    await remove(messagesRef);
+    await remove(messagesRef); // حذف جميع الرسائل
+    chatBox.innerHTML = "";     // مسح الشات عند الجميع
     msgInput.value="";
     return;
   }
@@ -120,7 +123,7 @@ form.addEventListener("submit", async e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-// الكتابة الحية
+// 🔹 الكتابة الحية
 msgInput.addEventListener("input", ()=>{
   set(ref(db,"typing/"+userId),{name:username});
   clearTimeout(window.typingTimeout);
