@@ -246,7 +246,10 @@ body.light #chat { background:#f7f7f7; }
   background:radial-gradient(at 47.966% 59.17%, hsla(195, 8.16%, 19.21%, 1) 0%, hsla(195, 8.16%, 19.21%, 0) 100%);
   box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
 }
-body.light .message { background: linear-gradient(90deg, #f4f0f4,#45484a); color:#222; }
+body.light .message {
+  background: linear-gradient(90deg, #f4f0f4,#45484a);
+  color:#222;
+}
 .message.mine { margin-left:auto; color:#fff; }
 body.light .message.mine { color:#fff; }
 .message.other { margin-right:auto; color:#fff; }
@@ -275,6 +278,22 @@ button:hover{background:#1dd1a1;}
   background:#48dbfb; color:#fff; border:none; border-radius:8px; cursor:pointer;
 }
 
+/* 🔹 تعديل زر الأفاتار */
+#avatarInput{
+  position:fixed;
+  top:10px;
+  right:10px;
+  width:35px;
+  height:35px;
+  padding:0;
+  margin:0;
+  border-radius:50%;
+  overflow:hidden;
+  cursor:pointer;
+  opacity:0.9;
+}
+#avatarInput:hover { opacity:1; }
+
 #typing{font-size:14px;color:#ffd166;margin:6px;min-height:20px; transition:0.3s;}
 body.light #typing { color:#555; }
 
@@ -298,7 +317,7 @@ body.light #users li:hover{background:#dcdcdc;}
 <body>
 <h2>💬 دردشة مؤقتة</h2>
 <button id="toggleMode">تبديل الوضع</button>
-<input type="file" id="avatarInput" accept="image/*" style="width:35px;height:35px;margin:10px;border-radius:50%;"/>
+<input type="file" id="avatarInput" accept="image/*"/>
 <div id="chat"></div>
 <div id="typing"></div>
 <form id="chatForm">
