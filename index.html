@@ -38,7 +38,7 @@ if (!deviceId) {
   localStorage.setItem("chat_device_id", deviceId);
 }
 
-// 🔹 اختيار الاسم مع حفظه للجهاز وربطه بالـ deviceId
+// 🔹 اختيار الاسم
 async function chooseUsername() {
   let username = localStorage.getItem("chat_username");
   const savedSnap = await get(savedUsersRef);
@@ -74,8 +74,6 @@ const username = await chooseUsername();
 // 🔹 اختيار اللون
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 let userColor = colors[Math.floor(Math.random() * colors.length)];
-
-// حفظ اللون مع deviceId
 await set(ref(db, "savedUsers/" + username), { color: userColor, deviceId });
 
 // 🔹 إنشاء المستخدم في قاعدة البيانات
@@ -85,12 +83,13 @@ await set(userRef, { name: username, color: userColor, online: true, lastSeen: D
 onDisconnect(userRef).remove();
 setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
 
-// 🔹 حذف الرسائل تلقائيًا إذا لم يبق أي مستخدم آخر لمدة 5 ثوانٍ
-let deleteTimeout;
+// 🔹 فور دخول المستخدم، اجعل الشات فارغًا في جهازه فورًا
+const chatBox = document.getElementById("chat");
+chatBox.innerHTML = "";
+
+// 🔹 عرض المستخدمين المتصلين
 onValue(usersRef, snapshot => {
   const users = snapshot.val() || {};
-
-  // عرض المستخدمين
   const userList = document.getElementById("users");
   userList.innerHTML = "";
   Object.values(users).forEach(u => {
@@ -99,25 +98,11 @@ onValue(usersRef, snapshot => {
     li.style.borderRight = `6px solid ${u.color}`;
     userList.appendChild(li);
   });
-
-  // التحقق من وجود مستخدمين آخرين
-  const otherUsers = Object.keys(users).filter(uid => uid !== userId);
-  clearTimeout(deleteTimeout);
-  if (otherUsers.length === 0) {
-    deleteTimeout = setTimeout(async () => {
-      const messagesSnap = await get(messagesRef);
-      if (messagesSnap.exists()) {
-        await remove(messagesRef);
-        console.log("🧹 تم حذف جميع الرسائل تلقائيًا لعدم وجود مستخدمين آخرين");
-      }
-    }, 5000);
-  }
 });
 
 // 🔹 التعامل مع إرسال الرسائل
 const form = document.getElementById("chatForm");
 const msgInput = document.getElementById("msg");
-const chatBox = document.getElementById("chat");
 const typingBox = document.getElementById("typing");
 
 form.addEventListener("submit", async e => {
@@ -139,7 +124,7 @@ form.addEventListener("submit", async e => {
   remove(ref(db, "typing/" + userId));
 });
 
-// 🔹 عرض الرسائل الجديدة
+// 🔹 عرض الرسائل الجديدة (بعد دخول المستخدم فقط للرسائل القادمة)
 onChildAdded(messagesRef, snapshot => {
   const m = snapshot.val();
   const div = document.createElement("div");
