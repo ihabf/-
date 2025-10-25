@@ -2,7 +2,8 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>دردشة مؤقتة</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💬 دردشة مؤقتة</title>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -11,7 +12,7 @@
       onDisconnect, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-    // ✅ إعداد Firebase ببياناتك الحقيقية
+    // ✅ إعداد Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
       authDomain: "kelta-gmae.firebaseapp.com",
@@ -26,25 +27,25 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // المراجع
+    // 🔹 المراجع
     const usersRef = ref(db, "users");
     const messagesRef = ref(db, "messages");
     const typingRef = ref(db, "typing");
 
-    // توليد معرف المستخدم وطلب الاسم
+    // 🔹 إنشاء هوية المستخدم
     const userId = "user_" + Math.floor(Math.random() * 100000);
     let username = prompt("اكتب اسمك:")?.trim() || "مجهول";
 
-    // اختيار لون عشوائي للمستخدم
+    // 🔹 اختيار لون عشوائي
     const colors = ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff", "#a0c4ff", "#bdb2ff", "#ffc6ff"];
     const userColor = colors[Math.floor(Math.random() * colors.length)];
 
-    // إنشاء سجل المستخدم
+    // 🔹 تسجيل المستخدم
     const userRef = ref(db, "users/" + userId);
     set(userRef, { name: username, color: userColor, joinedAt: serverTimestamp() });
     onDisconnect(userRef).remove();
 
-    // مراقبة المستخدمين وتحديث القائمة
+    // 🔹 مراقبة المستخدمين
     onValue(usersRef, (snapshot) => {
       const users = snapshot.val() || {};
       const userList = document.getElementById("users");
@@ -58,12 +59,14 @@
           userList.appendChild(li);
         });
       } else {
-        // لا يوجد أحد متصل -> حذف الرسائل
-        set(messagesRef, null);
+        // 🧹 لا يوجد أحد متصل => حذف الدردشة بعد ثانيتين
+        setTimeout(() => {
+          set(messagesRef, null);
+        }, 2000);
       }
     });
 
-    // إرسال رسالة
+    // 🔹 إرسال الرسائل
     const form = document.getElementById("chatForm");
     const msgInput = document.getElementById("msg");
     const chatBox = document.getElementById("chat");
@@ -81,11 +84,11 @@
           time: new Date().toLocaleTimeString()
         });
         msgInput.value = "";
-        remove(ref(db, "typing/" + userId)); // عند الإرسال توقف "يكتب الآن"
+        remove(ref(db, "typing/" + userId));
       }
     });
 
-    // عرض الرسائل فور وصولها
+    // 🔹 عرض الرسائل الجديدة فور وصولها
     onChildAdded(messagesRef, (snapshot) => {
       const m = snapshot.val();
       const div = document.createElement("div");
@@ -95,7 +98,7 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     });
 
-    // 🔹 ميزة "يكتب الآن..."
+    // 🔹 "يكتب الآن..."
     msgInput.addEventListener("input", () => {
       set(ref(db, "typing/" + userId), { name: username });
       clearTimeout(window.typingTimeout);
@@ -104,7 +107,7 @@
       }, 2000);
     });
 
-    // عرض من يكتب الآن
+    // 🔹 عرض حالة الكتابة
     onValue(typingRef, (snapshot) => {
       const typingUsers = snapshot.val() || {};
       const names = Object.values(typingUsers)
@@ -125,80 +128,99 @@
       margin: 0;
       padding: 0;
       text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
     }
 
-    h2 { color: #ffd166; margin: 15px 0; }
+    h2 {
+      color: #ffd166;
+      margin: 15px 0;
+      font-size: 1.3em;
+    }
 
     #chat {
-      height: 250px;
+      flex: 1;
+      width: 95%;
+      max-width: 600px;
       overflow-y: auto;
       border: 1px solid #333;
       padding: 10px;
-      margin: 10px auto;
-      width: 90%;
       background: #1b1b1b;
       border-radius: 10px;
       text-align: left;
+      box-sizing: border-box;
     }
 
     .message {
       margin-bottom: 6px;
       line-height: 1.4;
+      word-wrap: break-word;
     }
 
     form {
+      width: 95%;
+      max-width: 600px;
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       gap: 5px;
       margin: 10px auto;
     }
 
     input {
-      width: 70%;
-      padding: 8px;
+      flex: 1;
+      padding: 10px;
       border-radius: 6px;
       border: none;
       outline: none;
       background: #222;
       color: #eee;
+      font-size: 16px;
     }
 
     button {
-      padding: 8px 12px;
+      padding: 10px 15px;
       border: none;
       border-radius: 6px;
       background: #06d6a0;
       color: #000;
       font-weight: bold;
       cursor: pointer;
-      transition: 0.2s;
-    }
-
-    button:hover { background: #04b48a; }
-
-    #users {
-      list-style: none;
-      padding: 0;
-      margin: 15px auto;
-      width: 50%;
-    }
-
-    #users li {
-      background: #222;
-      margin: 5px 0;
-      padding: 6px;
-      border-radius: 6px;
-      text-align: right;
-      font-weight: 600;
-      border-right: 6px solid #666;
+      font-size: 15px;
     }
 
     #typing {
       font-size: 14px;
       color: #aaa;
       margin: 5px;
-      height: 18px;
       min-height: 18px;
+    }
+
+    #users {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0;
+      width: 90%;
+      max-width: 400px;
+    }
+
+    #users li {
+      background: #222;
+      margin: 5px 0;
+      padding: 8px;
+      border-radius: 6px;
+      text-align: right;
+      font-weight: 600;
+      border-right: 6px solid #666;
+    }
+
+    /* ✅ تحسين الواجهة للجوال */
+    @media (max-width: 600px) {
+      h2 { font-size: 1.1em; }
+      input, button { font-size: 14px; }
+      #chat { height: 50vh; }
+      #users li { font-size: 14px; }
     }
   </style>
 </head>
@@ -206,8 +228,7 @@
   <h2>💬 دردشة مؤقتة</h2>
 
   <div id="chat"></div>
-
-  <div id="typing"></div> <!-- يكتب الآن -->
+  <div id="typing"></div>
 
   <form id="chatForm">
     <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
