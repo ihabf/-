@@ -7,7 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -75,6 +75,9 @@ const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 
+// 🔹 صوت الانضمام
+const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3"); // رابط صوت تنبيه
+
 // 🔹 عرض المستخدمين
 onValue(usersRef, snapshot=>{
   const users = snapshot.val() || {};
@@ -88,7 +91,7 @@ onValue(usersRef, snapshot=>{
   });
 });
 
-// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم + حذف فوري عند /delete
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return; // تجاهل الرسائل القديمة عند الدخول
@@ -106,8 +109,40 @@ get(messagesRef).then(()=>{ firstLoad=false; });
 // 🔹 تحديث فوري عند حذف الرسائل
 onValue(messagesRef, snapshot=>{
   if(!snapshot.exists()){
-    chatBox.innerHTML = ""; // إذا تم الحذف، امسح الصندوق فورًا
+    const div = document.createElement("div");
+    div.className="message";
+    div.style.fontStyle="italic";
+    div.style.color="#ff5555";
+    div.textContent = "⚠️ تم حذف كل الرسائل بواسطة المسؤول";
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
   }
+});
+
+// 🔹 إشعار عند انضمام/خروج المستخدم
+onChildAdded(usersRef, snapshot=>{
+  const u = snapshot.val();
+  if(u.name !== username){
+    const div = document.createElement("div");
+    div.className="message";
+    div.style.fontStyle="italic";
+    div.style.color="#55ff55";
+    div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    joinSound.play();
+  }
+});
+
+onChildRemoved(usersRef, snapshot=>{
+  const u = snapshot.val();
+  const div = document.createElement("div");
+  div.className="message";
+  div.style.fontStyle="italic";
+  div.style.color="#ff5555";
+  div.textContent = `❌ ${u.name} غادر الغرفة`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 // 🔹 إرسال الرسائل
@@ -129,17 +164,21 @@ form.addEventListener("submit", async e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-// 🔹 الكتابة الحية
+// 🔹 الكتابة الحية محسنة
 msgInput.addEventListener("input", ()=>{
   set(ref(db,"typing/"+userId),{name:username});
   clearTimeout(window.typingTimeout);
-  window.typingTimeout=setTimeout(()=>remove(ref(db,"typing/"+userId)),2000);
+  window.typingTimeout=setTimeout(()=>remove(ref(db,"typing/"+userId)),1500);
 });
 
 onValue(typingRef,snapshot=>{
   const typingUsers = snapshot.val() || {};
   const names = Object.values(typingUsers).map(u=>u.name).filter(n=>n!==username);
-  typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
+  if(names.length){
+    typingBox.innerHTML = `<em style="color:#ffd166;">${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}</em>`;
+  }else{
+    typingBox.innerHTML = "";
+  }
 });
 </script>
 
@@ -151,7 +190,7 @@ h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
 form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
 input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
-#typing{font-size:14px;color:#aaa;margin:5px;min-height:18px;}
+#typing{font-size:14px;color:#ffd166;margin:5px;min-height:18px;}
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
 #users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;}
 </style>
