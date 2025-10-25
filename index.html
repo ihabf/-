@@ -9,7 +9,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import {
       getDatabase, ref, push, set, remove, onValue, onChildAdded,
-      onDisconnect, serverTimestamp, get, update
+      onDisconnect, get, update
     } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
     // 🔹 إعدادات Firebase
@@ -32,13 +32,26 @@
     const messagesRef = ref(db, "messages");
     const chatRef = ref(db, "chat");
     const typingRef = ref(db, "typing");
+    const savedUsersRef = ref(db, "savedUsers");
 
-    // 🔹 إنشاء مستخدم عشوائي
-    const userId = "user_" + Math.floor(Math.random() * 100000);
+    // 🔹 إنشاء مستخدم
     const username = prompt("اكتب اسمك:")?.trim() || "مجهول";
+    const userId = "user_" + Math.floor(Math.random() * 100000);
     const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
-    const userColor = colors[Math.floor(Math.random() * colors.length)];
+    let userColor = colors[Math.floor(Math.random() * colors.length)];
 
+    // 🔸 فحص إن كان هذا الاسم محفوظ مسبقًا
+    const savedSnap = await get(savedUsersRef);
+    const savedData = savedSnap.val() || {};
+    if (savedData[username]) {
+      userColor = savedData[username].color;
+      console.log(`🎨 تم استرجاع اللون القديم للمستخدم ${username}`);
+    } else {
+      // حفظ اللون الجديد
+      await set(ref(db, "savedUsers/" + username), { color: userColor });
+    }
+
+    // 🔹 تسجيل المستخدم في قاعدة البيانات
     const userRef = ref(db, "users/" + userId);
     await set(userRef, {
       name: username,
@@ -55,24 +68,37 @@
     // 🔹 عند مغادرة المستخدم
     onDisconnect(userRef).remove();
 
-    // 🔹 حذف الدردشة إذا لم يبقَ أحد نشط فعليًا
+    // 🔹 حذف البيانات إن لم يبقَ أحد متصل فعليًا
     async function cleanupIfEmpty() {
       const snapshot = await get(usersRef);
       const users = snapshot.val() || {};
       const now = Date.now();
 
-      // 🔸 فقط من ظهر آخر 10 ثوانٍ يُعتبر نشطًا
+      // المستخدمون النشطون فقط خلال آخر 10 ثوانٍ
       const activeUsers = Object.values(users).filter(u => now - (u.lastSeen || 0) < 10000);
 
       if (activeUsers.length === 0) {
-        console.log("🚮 لا يوجد أي مستخدم نشط — سيتم حذف جميع البيانات...");
+        console.log("🚮 لا يوجد أي مستخدم نشط — بدء التنظيف...");
+
+        // حذف كل الرسائل
+        const messagesSnap = await get(messagesRef);
+        if (messagesSnap.exists()) {
+          messagesSnap.forEach(child => {
+            remove(ref(db, "messages/" + child.key));
+          });
+          console.log("🧹 تم حذف كل الرسائل بنجاح");
+        } else {
+          console.log("📭 لا توجد رسائل لحذفها");
+        }
+
+        // حذف باقي الفروع
         await Promise.all([
-          remove(messagesRef),
           remove(chatRef),
           remove(typingRef),
           remove(usersRef)
         ]);
-        console.log("✅ تم حذف جميع البيانات بنجاح!");
+
+        console.log("✅ تم تنظيف باقي البيانات (chat / typing / users)");
       } else {
         console.log(`👥 عدد المستخدمين النشطين: ${activeUsers.length}`);
       }
