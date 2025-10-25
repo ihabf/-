@@ -106,25 +106,12 @@ form.addEventListener("submit", async e => {
   if (!text) return;
 
   if (text.startsWith("/delete") && username === ADMIN_NAME) {
-    form.addEventListener("submit", async e => {
-  e.preventDefault();
-  const text = msgInput.value.trim();
-  if (!text) return;
-
-  // 🔹 الحذف الفوري فقط إذا كان المدير
-  if (text.startsWith("/delete") && username === ADMIN_NAME) {
-    await remove(messagesRef); // حذف الرسائل فورياً لجميع المستخدمين
-    chatBox.innerHTML = "";     // تفريغ واجهة الدردشة مباشرة
+    await remove(messagesRef); // حذف الرسائل لجميع المستخدمين
+    chatBox.innerHTML = "";
     msgInput.value = "";
+    alert("✅ تم حذف جميع الرسائل بواسطة المدير!");
     return;
   }
-
-  const msgRef = push(messagesRef);
-  await set(msgRef, { user: username, color: userColor, text, time: new Date().toLocaleTimeString() });
-  msgInput.value = "";
-  remove(ref(db, "typing/" + userId));
-});
-
 
   const msgRef = push(messagesRef);
   await set(msgRef, { user: username, color: userColor, text, time: new Date().toLocaleTimeString() });
