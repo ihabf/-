@@ -58,10 +58,8 @@ async function chooseUsername() {
 const username = await chooseUsername();
 
 // 🔹 اختيار اللون وحفظه
-const colors = ["#ff6b6b","#feca57","#ff9ff3","#48dbfb","#1dd1a1","#5f27cd","#ee5253","#0abde3"];
-let userColor = colors[Math.floor(Math.random()*colors.length)];
-// إذا كان المستخدم مسؤول، يصبح لونه بنفسجي
-if(username === ADMIN_NAME) userColor = "#8e44ad";
+const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
+const userColor = colors[Math.floor(Math.random()*colors.length)];
 await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
 
 // 🔹 إنشاء المستخدم
@@ -77,12 +75,9 @@ const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
-const toggleBtn = document.getElementById("toggleMode");
 
-// 🔹 أصوات قصيرة وسريعة
-const soundJoin = new Audio("https://www.soundjay.com/button/sounds/button-3.mp3");
-const soundLeave = new Audio("https://www.soundjay.com/button/sounds/button-10.mp3");
-const soundTyping = new Audio("https://www.soundjay.com/button/sounds/button-16.mp3");
+// 🔹 صوت الانضمام
+const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3");
 let audioEnabled = false;
 document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
@@ -91,15 +86,17 @@ function renderUsers(users, typingUsers){
   userList.innerHTML = "";
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
-    li.textContent = u.name;
-    // لون المستخدم مسؤول بنفسجي، والبقية أبيض
-    li.style.borderRight = `6px solid ${u.name===ADMIN_NAME ? "#8e44ad" : "#fff"}`;
-    if(typingUsers[id]) li.innerHTML += ` <span class="dots">…</span>`;
+    let typingAnim = "";
+    if(typingUsers[id]){
+      typingAnim = `<span class="dots">…</span>`;
+    }
+    li.innerHTML = `${u.name} ${typingAnim}`;
+    li.style.borderRight = `6px solid ${u.color}`;
     userList.appendChild(li);
   });
 }
 
-// باقي السكريبت كما هو بالكامل
+// 🔹 استقبال المستخدمين والكتابة الحية
 let currentUsers = {};
 let currentTyping = {};
 onValue(usersRef, snapshot=>{
@@ -107,166 +104,117 @@ onValue(usersRef, snapshot=>{
   renderUsers(currentUsers, currentTyping);
 });
 
+// 🔹 إشعار عند دخول وخروج المستخدمين
 onChildAdded(usersRef, snapshot=>{
   const u = snapshot.val();
   if(u.name !== username){
     const div = document.createElement("div");
-    div.className="message system";
+    div.className="message";
+    div.style.fontStyle="italic";
+    div.style.color="#55ff55";
     div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
-    if(audioEnabled) soundJoin.play();
+    if(audioEnabled) joinSound.play();
   }
 });
 onChildRemoved(usersRef, snapshot=>{
   const u = snapshot.val();
   const div = document.createElement("div");
-  div.className="message system leave";
+  div.className="message";
+  div.style.fontStyle="italic";
+  div.style.color="#ff5555";
   div.textContent = `❌ ${u.name} غادر الغرفة`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
-  if(audioEnabled) soundLeave.play();
 });
 
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
   const m = snapshot.val();
   const div=document.createElement("div");
-  div.className="message "+(m.user===username?"mine":"other");
-  div.innerHTML=`<strong style="color:${m.user===ADMIN_NAME ? "#8e44ad" : "#fff"}">${m.user}:</strong> ${m.text}`;
+  div.className="message";
+  div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
 get(messagesRef).then(()=>{ firstLoad=false; });
 
+// 🔹 تحديث فوري عند حذف الرسائل
 onValue(messagesRef, snapshot=>{
-  if(!snapshot.exists()) chatBox.innerHTML = "";
+  if(!snapshot.exists()){
+    chatBox.innerHTML = "";
+  }
 });
 
-form.addEventListener("submit", e=>{
+// 🔹 إرسال الرسائل
+form.addEventListener("submit", async e=>{
   e.preventDefault();
-  const text = msgInput.value.trim();
+  const text=msgInput.value.trim();
   if(!text) return;
 
-  if(text.startsWith("/delete") && username === ADMIN_NAME){
-    remove(messagesRef);
+  if(text.startsWith("/delete") && username===ADMIN_NAME){
+    await remove(messagesRef);
     msgInput.value="";
     return;
   }
 
-  push(messagesRef, {
-    user: username,
-    color:userColor,
-    text,
-    time: new Date().toLocaleTimeString()
-  });
-
+  const msgRef=push(messagesRef);
+  await set(msgRef,{user:username,color:userColor,text,time:new Date().toLocaleTimeString()});
   msgInput.value="";
-  msgInput.focus();
   remove(ref(db,"typing/"+userId));
 });
 
+// 🔹 الكتابة الحية مع نقاط متحركة
+let typingTimeout;
 msgInput.addEventListener("input", ()=>{
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
-  if(audioEnabled) soundTyping.play();
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),2500);
 });
 
-onValue(typingRef, snapshot=>{
+onValue(typingRef,snapshot=>{
   const typingUsers = snapshot.val() || {};
   currentTyping = {};
   const now = Date.now();
   Object.entries(typingUsers).forEach(([id,u])=>{
-    if(u.name !== username && now - (u.ts||0) < 2000) currentTyping[id] = true;
+    if(u.name !== username && now - (u.ts||0) < 2500){
+      currentTyping[id] = true;
+    }
   });
   renderUsers(currentUsers, currentTyping);
 
+  // الرسالة أسفل الدردشة
   const names = Object.entries(typingUsers)
-    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2000)
+    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
     .map(([id,u])=>u.name);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
-
-toggleBtn.addEventListener("click", ()=>{
-  document.body.classList.toggle("light");
-  localStorage.setItem("theme",document.body.classList.contains("light")?"light":"dark");
-});
-if(localStorage.getItem("theme")==="light") document.body.classList.add("light");
 </script>
 
 <style>
-body {
-  font-family:"Cairo",sans-serif; background:#121212; color:#e0e0e0;
-  margin:0; padding:0; display:flex; flex-direction:column;
-  align-items:center; height:100vh; transition:0.3s;
-}
-body.light { background:#f9f9f9; color:#111; }
-
-h2 { color:#0abde3;margin:15px 0;font-size:1.4em; text-shadow:0 0 5px #0abde3; }
-#chat {
-  flex:1;width:95%;max-width:650px;overflow-y:auto;
-  border-radius:12px;padding:12px;background:#1f1f1f;
-  box-shadow:0 0 15px rgba(0,0,0,0.3); transition:0.3s;
-}
-body.light #chat { background:#fff; }
-
-.message{
-  margin-bottom:10px;line-height:1.5;word-wrap:break-word;
-  padding:10px 14px;border-radius:18px;max-width:80%;
-  background:#2b2b2b; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.2); clear:both;
-}
-body.light .message { background:#e8e8e8; color:#111; }
-.message.mine { margin-left:auto; }
-.message.other { margin-right:auto; }
-
-.message.system {color:#a3ffad;font-style:italic;font-size:0.95em;text-align:center;background:transparent;box-shadow:none;}
-.message.system.leave {color:#ff7b7b;}
-
-form{
-  width:95%;max-width:650px;display:flex;gap:5px;margin:10px auto;
-}
-input{
-  flex:1;padding:12px;border-radius:20px;border:none;outline:none;
-  background:#2c2c2c;color:#fff;font-size:16px; transition:0.3s;
-}
-body.light input { background:#f0f0f0;color:#111; }
-
-button{
-  padding:12px 18px;border:none;border-radius:20px;
-  background:#0abde3;color:#fff;font-weight:bold;cursor:pointer;transition:0.2s;
-}
-button:hover{background:#0dcaf0;}
-
-#toggleMode{
-  position:fixed; top:10px; left:10px; padding:10px 15px;
-  background:#0abde3; color:#fff; border:none; border-radius:8px; cursor:pointer;
-}
-
-#typing{font-size:14px;color:#ffd166;margin:6px;min-height:20px; transition:0.3s;}
-body.light #typing { color:#555; }
-
+body { font-family: "Cairo", sans-serif; background:#0e0e0e; color:#eee; margin:0; padding:0; text-align:center; display:flex; flex-direction:column; align-items:center; height:100vh; }
+h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
+#chat { flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box;}
+.message{margin-bottom:6px;line-height:1.4;word-wrap:break-word;}
+form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
+input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
+button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
+#typing{font-size:14px;color:#ffd166;margin:5px;min-height:18px;}
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
-#users li{
-  background:#2c2c2c;margin:6px 0;padding:10px 14px;border-radius:15px;
-  text-align:right;font-weight:600;border-right:6px solid #fff;
-  display:flex;justify-content:space-between;align-items:center;transition:0.2s;
-}
-body.light #users li { background:#e0e0e0;color:#111;border-right:6px solid #888; }
-#users li:hover{background:#3a3a3a;}
-body.light #users li:hover{background:#ccc;}
-
-.dots{display:inline-block;animation:blink 1s infinite;font-weight:bold;color:#3ba55c;}
+#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
+.dots{display:inline-block;animation:blink 1s infinite;}
 @keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
 </style>
-
 </head>
 <body>
 <h2>💬 دردشة مؤقتة</h2>
-<button id="toggleMode">تبديل الوضع</button>
 <div id="chat"></div>
 <div id="typing"></div>
 <form id="chatForm">
-  <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+  <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
   <button>إرسال</button>
 </form>
 <h3>المتصلون الآن:</h3>
