@@ -2,172 +2,221 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>💬 دردشة مؤقتة</title>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-// 🔹 كل سكريبتك الأصلي كما هو
-// لا يتم لمس أي شيء هنا
-// (انسخ كامل السكريبت الأصلي الذي وضعته مسبقاً)
+// 🔹 إعداد Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
+  authDomain: "kelta-gmae.firebaseapp.com",
+  databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
+  projectId: "kelta-gmae",
+  storageBucket: "kelta-gmae.firebasestorage.app",
+  messagingSenderId: "247464874751",
+  appId: "1:247464874751:web:779a3120e6b422fdee72ca",
+  measurementId: "G-6C8HGRKLHS"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const usersRef = ref(db, "users");
+const messagesRef = ref(db, "messages");
+const typingRef = ref(db, "typing");
+const savedUsersRef = ref(db, "savedUsers");
+
+const ADMIN_NAME = "KeltA";
+
+// 🔹 إنشاء معرف فريد للجهاز
+let deviceId = localStorage.getItem("chat_device_id") || "dev_" + Math.floor(Math.random()*1e9);
+localStorage.setItem("chat_device_id", deviceId);
+
+// 🔹 اختيار اسم المستخدم
+async function chooseUsername() {
+  let username = localStorage.getItem("chat_username");
+  const savedData = (await get(savedUsersRef)).val() || {};
+  if(username && savedData[username]?.deviceId===deviceId) return username;
+
+  let valid=false;
+  while(!valid){
+    username = prompt("اكتب اسمك:")?.trim();
+    if(!username) continue;
+    const usersData = (await get(usersRef)).val() || {};
+    const nameTaken = Object.values(usersData).some(u=>u.name===username);
+    const nameSavedElsewhere = savedData[username] && savedData[username].deviceId!==deviceId;
+    if(nameTaken || nameSavedElsewhere) continue;
+    valid=true;
+  }
+  localStorage.setItem("chat_username", username);
+  return username;
+}
+
+const username = await chooseUsername();
+
+// 🔹 اختيار اللون وحفظه
+const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
+const userColor = colors[Math.floor(Math.random()*colors.length)];
+await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
+
+// 🔹 إنشاء المستخدم
+const userId = "user_"+Math.floor(Math.random()*100000);
+const userRef = ref(db, "users/"+userId);
+await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now()});
+onDisconnect(userRef).remove();
+setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
+
+// عناصر الصفحة
+const chatBox=document.getElementById("chat");
+const form=document.getElementById("chatForm");
+const msgInput=document.getElementById("msg");
+const typingBox=document.getElementById("typing");
+const userList=document.getElementById("users");
+
+// 🔹 صوت الانضمام
+const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3");
+let audioEnabled = false;
+document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
+
+// 🔹 عرض المستخدمين مع حالة الكتابة
+function renderUsers(users, typingUsers){
+  userList.innerHTML = "";
+  Object.entries(users).forEach(([id,u])=>{
+    const li = document.createElement("li");
+    let typingAnim = "";
+    if(typingUsers[id]){
+      typingAnim = `<span class="dots">…</span>`;
+    }
+    li.innerHTML = `${u.name} ${typingAnim}`;
+    li.style.borderRight = `6px solid ${u.color}`;
+    userList.appendChild(li);
+  });
+}
+
+// 🔹 استقبال المستخدمين والكتابة الحية
+let currentUsers = {};
+let currentTyping = {};
+onValue(usersRef, snapshot=>{
+  currentUsers = snapshot.val() || {};
+  renderUsers(currentUsers, currentTyping);
+});
+
+// 🔹 إشعار عند دخول وخروج المستخدمين
+onChildAdded(usersRef, snapshot=>{
+  const u = snapshot.val();
+  if(u.name !== username){
+    const div = document.createElement("div");
+    div.className="message";
+    div.style.fontStyle="italic";
+    div.style.color="#55ff55";
+    div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    if(audioEnabled) joinSound.play();
+  }
+});
+onChildRemoved(usersRef, snapshot=>{
+  const u = snapshot.val();
+  const div = document.createElement("div");
+  div.className="message";
+  div.style.fontStyle="italic";
+  div.style.color="#ff5555";
+  div.textContent = `❌ ${u.name} غادر الغرفة`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
+let firstLoad = true;
+onChildAdded(messagesRef, snapshot=>{
+  if(firstLoad) return;
+  const m = snapshot.val();
+  const div=document.createElement("div");
+  div.className="message";
+  div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+get(messagesRef).then(()=>{ firstLoad=false; });
+
+// 🔹 تحديث فوري عند حذف الرسائل
+onValue(messagesRef, snapshot=>{
+  if(!snapshot.exists()){
+    chatBox.innerHTML = "";
+  }
+});
+
+// 🔹 إرسال الرسائل
+form.addEventListener("submit", async e=>{
+  e.preventDefault();
+  const text=msgInput.value.trim();
+  if(!text) return;
+
+  if(text.startsWith("/delete") && username===ADMIN_NAME){
+    await remove(messagesRef);
+    msgInput.value="";
+    return;
+  }
+
+  const msgRef=push(messagesRef);
+  await set(msgRef,{user:username,color:userColor,text,time:new Date().toLocaleTimeString()});
+  msgInput.value="";
+  remove(ref(db,"typing/"+userId));
+});
+
+// 🔹 الكتابة الحية مع نقاط متحركة
+let typingTimeout;
+msgInput.addEventListener("input", ()=>{
+  set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),2500);
+});
+
+onValue(typingRef,snapshot=>{
+  const typingUsers = snapshot.val() || {};
+  currentTyping = {};
+  const now = Date.now();
+  Object.entries(typingUsers).forEach(([id,u])=>{
+    if(u.name !== username && now - (u.ts||0) < 2500){
+      currentTyping[id] = true;
+    }
+  });
+  renderUsers(currentUsers, currentTyping);
+
+  // الرسالة أسفل الدردشة
+  const names = Object.entries(typingUsers)
+    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
+    .map(([id,u])=>u.name);
+  typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
+});
 </script>
 
 <style>
-body { 
-  font-family: "Cairo", sans-serif; 
-  background:#0e0e0e; 
-  color:#eee; 
-  margin:0; 
-  padding:0; 
-  display:flex; 
-  flex-direction:column; 
-  align-items:center; 
-  height:100vh; 
-}
-
-/* عنوان الدردشة */
-h2 { 
-  color:#ffd166;
-  margin:15px 0;
-  font-size:1.3em;
-}
-
-/* صندوق الدردشة */
-#chat { 
-  flex:1;
-  width:70%;
-  max-width:800px;
-  overflow-y:auto;
-  border:1px solid #333;
-  padding:10px;
-  background:#1b1b1b;
-  border-radius:10px;
-  text-align:left;
-  box-sizing:border-box; 
-  display:flex; 
-  flex-direction:column; 
-  gap:4px;
-}
-
-/* فقاعات الرسائل */
-.message { 
-  margin:2px 0; 
-  line-height:1.4; 
-  word-wrap:break-word; 
-}
-.bubble { 
-  padding:8px 12px; 
-  border-radius:18px; 
-  max-width:80%; 
-  display:inline-block; 
-}
-.self { 
-  align-self:flex-end; 
-  border-top-right-radius:0;
-}
-.other { 
-  align-self:flex-start; 
-  border-top-left-radius:0; 
-  border:1px solid #555;
-}
-.typing-message { 
-  font-style:italic; 
-}
-
-/* حقل الكتابة أسفل */
-form{ 
-  width:70%;
-  max-width:800px;
-  display:flex;
-  gap:5px;
-  margin:0 auto;
-  position:fixed; 
-  bottom:0; 
-  left:50%; 
-  transform:translateX(-50%); 
-  background:#0e0e0e; 
-  padding:10px; 
-  border-radius:8px; 
-  box-sizing:border-box;
-}
-input{ 
-  flex:1;
-  padding:10px;
-  border-radius:6px;
-  border:none;
-  outline:none;
-  background:#222;
-  color:#eee;
-  font-size:16px;
-  spellcheck:false;
-  autocorrect:off;
-  autocapitalize:off;
-  caret-color:#06d6a0;
-}
-button{ 
-  padding:10px 15px;
-  border:none;
-  border-radius:6px;
-  background:#06d6a0;
-  color:#000;
-  font-weight:bold;
-  cursor:pointer;
-}
-
-/* قائمة المستخدمين على اليسار */
-#users { 
-  list-style:none; 
-  padding:0; 
-  margin:10px 0; 
-  width:25%;
-  max-width:300px; 
-  position:fixed;
-  left:10px;
-  top:70px;
-  overflow-y:auto;
-  max-height:70vh;
-}
-#users li{
-  background:#222;
-  margin:5px 0;
-  padding:8px;
-  border-radius:6px;
-  text-align:right;
-  font-weight:600;
-  border-right:6px solid #666;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-
-/* الرسائل المتحركة عند الكتابة */
-.dots{display:inline-block; font-family: monospace; color:#ffd166; animation:blinkDots 1s linear infinite;}
-@keyframes blinkDots{0%{opacity:0.2;}25%{opacity:0.5;}50%{opacity:1;}75%{opacity:0.5;}100%{opacity:0.2;}}
-
-/* النصوص أسفل الدردشة */
+body { font-family: "Cairo", sans-serif; background:#0e0e0e; color:#eee; margin:0; padding:0; text-align:center; display:flex; flex-direction:column; align-items:center; height:100vh; }
+h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
+#chat { flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box;}
+.message{margin-bottom:6px;line-height:1.4;word-wrap:break-word;}
+form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
+input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
+button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
 #typing{font-size:14px;color:#ffd166;margin:5px;min-height:18px;}
-
-/* استجابة للشاشات الصغيرة */
-@media screen and (max-width:600px){
-  #chat { max-height:60vh; width:95%; }
-  form { width:95%; }
-  #users { display:none; }
-}
+#users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
+#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
+.dots{display:inline-block;animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
 </style>
-
+</head>
 <body>
 <h2>💬 دردشة مؤقتة</h2>
-
 <div id="chat"></div>
 <div id="typing"></div>
-
 <form id="chatForm">
   <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
   <button>إرسال</button>
 </form>
-
 <h3>المتصلون الآن:</h3>
 <ul id="users"></ul>
 </body>
