@@ -7,10 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import {
-  getDatabase, ref, push, set, remove, onValue, onChildAdded,
-  onDisconnect, get, update
-} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -34,34 +31,33 @@ const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA"; // اسم المدير
 
-// 🔹 استرجاع الاسم من localStorage إذا موجود
-let username = localStorage.getItem("chat_username") || prompt("اكتب اسمك:")?.trim() || "مجهول";
+// 🔹 اختيار الاسم مع منع التكرار
+async function chooseUsername() {
+  let username = localStorage.getItem("chat_username");
+  let valid = false;
+  while (!valid) {
+    if (!username) username = prompt("اكتب اسمك:")?.trim() || "مجهول";
 
-// 🔹 منع تكرار الاسم داخل الغرفة (المدير دائمًا مسموح له)
-async function checkName(name) {
-  const [usersSnap, savedSnap] = await Promise.all([get(usersRef), get(savedUsersRef)]);
-  const usersData = usersSnap.val() || {};
-  const savedData = savedSnap.val() || {};
-  
-  const inRoom = Object.values(usersData).some(u => u.name === name);
-  const inSaved = savedData[name] ? true : false;
+    const usersSnap = await get(usersRef);
+    const usersData = usersSnap.val() || {};
+    const nameTaken = Object.values(usersData).some(u => u.name === username);
 
-  return (inRoom && name !== ADMIN_NAME) || (inSaved && name !== ADMIN_NAME);
+    if (nameTaken) {
+      alert("❌ هذا الاسم مستخدم بالفعل! اختر اسمًا آخر.");
+      username = null;
+    } else valid = true;
+  }
+  localStorage.setItem("chat_username", username);
+  return username;
 }
 
-// حلقة للتحقق من الاسم
-while(await checkName(username)) {
-  username = prompt("❌ هذا الاسم مستخدم! اختر اسمًا آخر:")?.trim() || "مجهول";
-}
+const username = await chooseUsername();
 
-// حفظ الاسم في localStorage
-localStorage.setItem("chat_username", username);
-
-// اختيار لون المستخدم
+// 🔹 اختيار اللون
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 let userColor = colors[Math.floor(Math.random() * colors.length)];
 
-// استرجاع اللون إذا محفوظ مسبقًا
+// استرجاع اللون إذا محفوظ
 const savedSnap = await get(savedUsersRef);
 const savedData = savedSnap.val() || {};
 if (savedData[username]) userColor = savedData[username].color;
