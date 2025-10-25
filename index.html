@@ -51,18 +51,17 @@
       const userList = document.getElementById("users");
       userList.innerHTML = "";
 
-      if (Object.keys(users).length > 0) {
-        Object.values(users).forEach((u) => {
-          const li = document.createElement("li");
-          li.textContent = u.name;
-          li.style.borderRight = `6px solid ${u.color}`;
-          userList.appendChild(li);
-        });
-      } else {
-        // 🧹 لا يوجد أحد متصل => حذف الدردشة بعد ثانيتين
-        setTimeout(() => {
-          set(messagesRef, null);
-        }, 2000);
+      Object.values(users).forEach((u) => {
+        const li = document.createElement("li");
+        li.textContent = u.name;
+        li.style.borderRight = `6px solid ${u.color}`;
+        userList.appendChild(li);
+      });
+
+      // ✅ إذا لم يبقَ أي مستخدم، نحذف جميع الرسائل فورًا
+      if (Object.keys(users).length === 0) {
+        console.log("🚮 لا يوجد مستخدمون متصلون - حذف الرسائل...");
+        set(ref(db, "messages"), null);
       }
     });
 
@@ -215,7 +214,6 @@
       border-right: 6px solid #666;
     }
 
-    /* ✅ تحسين الواجهة للجوال */
     @media (max-width: 600px) {
       h2 { font-size: 1.1em; }
       input, button { font-size: 14px; }
@@ -238,4 +236,4 @@
   <h3>المتصلون الآن:</h3>
   <ul id="users"></ul>
 </body>
-  </html>
+</html>
