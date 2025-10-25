@@ -186,11 +186,106 @@ onValue(typingRef,snapshot=>{
   });
   renderUsers(currentUsers, currentTyping);
 
-  // الرسالة أسفل الدردشة
   const names = Object.entries(typingUsers)
     .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
     .map(([id,u])=>u.name);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
+});
+
+// 🔹 بوت "البوت بسام"
+const BOT_NAME = "البوت بسام";
+const BOT_COLOR = "#ff4444"; // أحمر
+const BOT_ID = "bot_bassam";
+
+// ضع هنا كلمات البوت
+const botWordsList = [
+  "كلمة1",
+  "كلمة2",
+  "كلمة3",
+  "كلمة4",
+  "كلمة5"
+];
+
+// حالة البوت
+let botWaiting = false;
+let botQueue = [];
+
+// إرسال رسالة البوت
+async function sendBotMessage(text){
+  const msgRef=push(messagesRef);
+  await set(msgRef,{user:BOT_NAME,color:BOT_COLOR,text,time:new Date().toLocaleTimeString()});
+}
+
+// اختيار كلمات عشوائية
+function getRandomWords(count){
+  const words = [];
+  for(let i=0;i<count;i++){
+    const word = botWordsList[Math.floor(Math.random()*botWordsList.length)];
+    words.push(word);
+  }
+  return words;
+}
+
+// الاستماع لأوامر المستخدم
+onChildAdded(messagesRef, async snapshot=>{
+  const m = snapshot.val();
+  if(m.user !== username) return;
+  const text = m.text.trim();
+
+  // طشX
+  if(text.startsWith("طش")){
+    const count = parseInt(text.slice(3)) || 1;
+    const words = getRandomWords(count);
+    botQueue = words;
+    for(const w of words){
+      await sendBotMessage(`✅ ${w}`);
+    }
+  }
+
+  // يلا
+  if(text === "يلا"){
+    botWaiting = true;
+    const interval = setInterval(async ()=>{
+      const answered = Object.values(currentUsers).filter(u=>u.name !== BOT_NAME);
+      if(answered.length === Object.keys(currentUsers).length-1){
+        clearInterval(interval);
+        for(const w of botQueue){
+          await sendBotMessage(`✅ ${w}`);
+        }
+        botWaiting = false;
+      }
+    },1000);
+  }
+
+  // هات
+  if(text === "هات"){
+    for(const w of botQueue){
+      await sendBotMessage(`✅ ${w}`);
+    }
+  }
+});
+
+// حساب WPM لأول إجابة بعد كلمة البوت
+let botLastTime = null;
+onChildAdded(messagesRef, snapshot=>{
+  const m = snapshot.val();
+  if(m.user === BOT_NAME){
+    botLastTime = Date.now();
+    return;
+  }
+  if(botLastTime){
+    const elapsedMin = (Date.now() - botLastTime)/60000;
+    const wordCount = m.text.trim().split(/\s+/).length;
+    const wpm = Math.round(wordCount / elapsedMin);
+    const div=document.createElement("div");
+    div.className="message";
+    div.style.fontStyle="italic";
+    div.style.color="#ffaa00";
+    div.textContent = `🕒 ${m.user} كتب بسرعة ${wpm} كلمة/دقيقة`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    botLastTime = null;
+  }
 });
 </script>
 
