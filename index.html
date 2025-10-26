@@ -177,12 +177,17 @@ form.addEventListener("submit", async e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-// 🔹 الكتابة الحية مع نقاط متحركة
+// 🔹 تحسين دعم “يكتب الآن” لتشمل الهواتف ✅
 let typingTimeout;
-msgInput.addEventListener("input", ()=>{
+function updateTyping(){
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
   clearTimeout(typingTimeout);
   typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),2500);
+}
+
+// دعم كل الأحداث الممكنة للكتابة (PC + Mobile)
+["input","keyup","keydown","touchstart","touchend","compositionstart","compositionend"].forEach(ev=>{
+  msgInput.addEventListener(ev, updateTyping);
 });
 
 onValue(typingRef,snapshot=>{
