@@ -156,7 +156,6 @@ form.addEventListener("submit", e=>{
     return;
   }
 
-  // إرسال الرسالة مباشرة بدون انتظار
   push(messagesRef, {
     user: username,
     color: userColor,
@@ -165,10 +164,9 @@ form.addEventListener("submit", e=>{
   });
 
   msgInput.value="";
-  msgInput.focus(); // للحفاظ على التركيز بعد الإرسال
+  msgInput.focus();
   remove(ref(db,"typing/"+userId));
 });
-
 
 // 🔹 الكتابة الحية مع تحسين التتبع
 msgInput.addEventListener("input", ()=>{
@@ -184,13 +182,17 @@ onValue(typingRef, snapshot=>{
     if(u.name !== username && now - (u.ts||0) < 2000) currentTyping[id] = true;
   });
   renderUsers(currentUsers, currentTyping);
-
-  // عرض الكتابة أسفل الدردشة
-  const names = Object.entries(typingUsers)
-    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2000)
-    .map(([id,u])=>u.name);
-  typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
+
+// 🔹 تحديث نص "يكتب الآن..." بشكل دوري
+function updateTypingText() {
+  const now = Date.now();
+  const names = Object.entries(currentTyping)
+    .map(([id]) => currentUsers[id]?.name)
+    .filter(name => name);
+  typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
+}
+setInterval(updateTypingText, 500);
 
 // 🔹 تبديل الوضع
 toggleBtn.addEventListener("click", ()=>{
@@ -421,7 +423,3 @@ h3 {
 <ul id="users"></ul>
 </body>
 </html>
-
-
-
-
