@@ -146,7 +146,7 @@ onValue(usersRef, snapshot=>{
   renderUsers(currentUsers, currentTyping);
 });
 
-// 🔹 إشعار عند دخول وخروج المستخدمين
+// 🔹 إشعار عند دخول وخروج المستخدمين بدون صوت
 onChildAdded(usersRef, snapshot=>{
   const u = snapshot.val();
   if(u.name !== username && u.name !== BOT_NAME){
