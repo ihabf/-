@@ -76,10 +76,60 @@ const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 
-// 🔹 صوت الانضمام
-const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3");
+// 🔹 صوت نقرة هادئة (مولد صوتي صغير عبر Web Audio)
 let audioEnabled = false;
-document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const audioCtx = new (AudioCtx)();
+document.addEventListener('click', ()=>{
+  audioEnabled = true;
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}, {once: true});
+
+// مولد نقرة قصيرة هادئة (ضوضاء مشطوفة)
+function playClickNoise({volume = 0.05, duration = 0.018} = {}){
+  if(!audioEnabled) return;
+  try{
+    const sampleCount = Math.max(64, Math.floor(audioCtx.sampleRate * duration));
+    const buffer = audioCtx.createBuffer(1, sampleCount, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<sampleCount;i++){
+      const env = Math.exp(-6 * (i / sampleCount));
+      data[i] = (Math.random() * 2 - 1) * env * 0.7;
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const g = audioCtx.createGain();
+    g.gain.value = volume;
+    src.connect(g);
+    g.connect(audioCtx.destination);
+    src.start();
+    src.stop(audioCtx.currentTime + duration + 0.01);
+  }catch(e){ /* silent failure */ }
+}
+
+// مولد نغمة قصيرة (لتمييز الخروج)
+function playBeep({freq = 700, volume = 0.04, duration = 0.06} = {}){
+  if(!audioEnabled) return;
+  try{
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    g.gain.value = volume;
+    // لفّ سريع للـ gain لإتقان النغمة
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(volume, audioCtx.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+    osc.connect(g);
+    g.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration + 0.01);
+  }catch(e){ /* silent failure */ }
+}
+
+// دوال مريحة للاستخدام في الانضمام/المغادرة
+const playJoin = ()=> playClickNoise({volume:1, duration:0.018});
+const playLeave = ()=> playBeep({freq:560, volume:1, duration:0.06});
 
 // 🔹 عرض المستخدمين مع حالة الكتابة
 function renderUsers(users, typingUsers){
@@ -115,7 +165,7 @@ onChildAdded(usersRef, snapshot=>{
     div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
-    if(audioEnabled) joinSound.play();
+    if(audioEnabled) playJoin();
   }
 });
 onChildRemoved(usersRef, snapshot=>{
@@ -127,6 +177,8 @@ onChildRemoved(usersRef, snapshot=>{
   div.textContent = `❌ ${u.name} غادر الغرفة`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
+  if(audioEnabled) playBeep({freq:1200, volume:0.5, duration:0.04}); // صوت استلام رسالة
+  if(audioEnabled) playLeave();
 });
 
 // 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
@@ -165,6 +217,7 @@ form.addEventListener("submit", async e=>{
   await set(msgRef,{user:username,color:userColor,text,time:new Date().toLocaleTimeString()});
   msgInput.value="";
   remove(ref(db,"typing/"+userId));
+    if(audioEnabled) playBeep({freq:900, volume:0.7, duration:0.045}); // صوت إرسال مميز
 });
 
 // 🔹 الكتابة الحية مع نقاط متحركة
@@ -205,7 +258,8 @@ body {
     display: flex; 
     flex-direction: column; 
     align-items: center; 
-    height: 100vh;
+    min-height: 100vh;
+    position: relative;
 }
 
 h2 { 
@@ -215,10 +269,11 @@ h2 {
     text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-#chat { 
+#chat {
     flex: 1;
     width: 95%;
-    max-width: 600px;
+    max-width: 900px;
+    height: 550px; /* ارتفاع عادي افتراضي */
     overflow-y: auto;
     border: none;
     padding: 20px;
@@ -226,10 +281,11 @@ h2 {
     border-radius: 15px;
     text-align: left;
     box-sizing: border-box;
-    /* استخدم التخطيط المرن instead of fixed height */
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     scrollbar-width: thin;
     scrollbar-color: #333 #111111;
+    position: relative;
+    -webkit-overflow-scrolling: touch; /* تمرير سلس على iOS */
 }
 
 #chat::-webkit-scrollbar {
@@ -277,6 +333,7 @@ form {
 input {
     flex: 1;
     padding: 12px 20px;
+    height: 52px; /* ارتفاع افتراضي لحقل الكتابة (هاتف) */
     border-radius: 25px;
     border: 1px solid #333;
     outline: none;
@@ -317,24 +374,29 @@ button:hover {
     padding: 0;
     margin: 15px 0;
     width: 95%;
-    max-width: 800px;
+    max-width: 900px;
+    display: flex;              /* عرض العناصر بشكل أفقي */
+    flex-wrap: wrap;           /* التفاف عند ضيق المساحة */
+    gap: 10px;                 /* مسافة بين الأوسمة */
+    justify-content: center;   /* تمركز الأوسمة أفقياً */
+    align-items: center;
 }
 
 #users li {
     background: #1a1a1a;
-    margin: 8px 0;
-    padding: 12px 15px;
-    border-radius: 12px;
-    text-align: right;
+    margin: 0;                 /* مسافة تدار عبر gap */
+    padding: 8px 14px;         /* اضبط حشو أصغر لملاءمة أفقية */
+    border-radius: 20px;       /* شكل شبيه بالأوسمة */
+    text-align: center;        /* نص مركزي داخل الوسم */
     font-weight: 500;
-    display: flex;
-    justify-content: space-between;
+    display: inline-flex;      /* عرض أفقي لكل عنصر */
     align-items: center;
-    transition: transform 0.2s ease;
+    transition: transform 0.15s ease, background 0.15s ease;
 }
 
 #users li:hover {
-    transform: translateX(-5px);
+    transform: translateY(-3px);
+    background: #222222;
 }
 
 .dots {
@@ -352,14 +414,23 @@ button:hover {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* شاشات صغيرة (هاتف) - قواعد افتراضية مُناسبة للهواتف */
 @media screen and (max-width: 768px) {
-    #chat {
-        height: 500px;
+    body {
+        height: -webkit-fill-available; /* يدعم ارتفاع الشاشة الحقيقي على iOS */
     }
-    
-    .message {
-        max-width: 90%;
+    #chat { 
+        height: 400px;
+        max-height: calc(100vh - 180px); /* يترك مساحة للكيبورد */
     }
+    input { height: 52px; }
+    .message { max-width: 90%; }
+}
+
+/* شاشات كبيرة (كمبيوتر/تابلت) — مساحة أكبر للشات وحقل كتابة أطول */
+@media screen and (min-width: 769px) {
+  #chat { height: 800px; }
+  input { height: 64px; }
 }
 </style>
 </head>
@@ -371,7 +442,7 @@ button:hover {
   <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
   <button>إرسال</button>
 </form>
-<h3>المتصلون الآن:</h3>
+<h3>المتصل الآن:</h3>
 <ul id="users"></ul>
 </body>
 </html>
