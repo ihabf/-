@@ -64,7 +64,7 @@ const userColor = colors[Math.floor(Math.random()*colors.length)];
 // 🔹 رفع أفاتار (صورة افتراضية إذا لم يرفع المستخدم)
 async function uploadAvatar(file){
   const url = "https://api.cloudinary.com/v1_1/keltaaa/image/upload"; // حسابك Cloudinary
-  const preset = "unsigned"; // اسم الـ unsigned preset الخاص بك
+  const preset = "unsigned"; keltacloud
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", preset);
@@ -303,3 +303,4 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 <ul id="users"></ul>
 </body>
   </html>
+
