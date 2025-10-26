@@ -61,16 +61,22 @@ const username = await chooseUsername();
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 const userColor = colors[Math.floor(Math.random()*colors.length)];
 
-// 🔹 رفع أفاتار (صورة افتراضية إذا لم يرفع المستخدم)
+// 🔹 رفع أفاتار
 async function uploadAvatar(file){
-  const url = "https://api.cloudinary.com/v1_1/keltaaa/image/upload"; // حسابك Cloudinary
-  const preset = "unsigned"; keltacloud
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", preset);
-  const res = await fetch(url, {method:"POST", body:formData});
-  const data = await res.json();
-  return data.secure_url;
+  try {
+    const url = "https://api.cloudinary.com/v1_1/keltaaa/image/upload";
+    const preset = "unsigned"; // تأكد أن هذا preset موجود في حسابك Cloudinary
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", preset);
+    const res = await fetch(url, {method:"POST", body:formData});
+    const data = await res.json();
+    console.log(data);
+    return data.secure_url || "";
+  } catch(e) {
+    console.error("خطأ رفع الصورة:", e);
+    return "";
+  }
 }
 
 // رابط صورة افتراضية صحيحة
@@ -117,6 +123,7 @@ avatarInput.addEventListener("change", async e=>{
   const file = e.target.files[0];
   if(!file) return;
   const url = await uploadAvatar(file);
+  if(!url) return;
   userAvatar = url;
   localStorage.setItem("chat_avatar", url);
   update(userRef, {avatar:userAvatar});
@@ -202,12 +209,12 @@ form.addEventListener("submit", async e=>{
   remove(ref(db,"typing/"+userId));
 });
 
-// دعم "يكتب الآن" بأقصى سرعة
+// 🔹 دعم "يكتب الآن" بأقصى سرعة وديناميكي
 let typingTimeout;
 function updateTyping(){
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
   clearTimeout(typingTimeout);
-  typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),100);
+  typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),50); // أسرع مدة
 }
 ["input","keyup","keydown","compositionstart","compositionend"].forEach(ev=>{
   msgInput.addEventListener(ev, updateTyping);
@@ -229,47 +236,6 @@ onValue(typingRef,snapshot=>{
     .map(([id,u])=>u.name);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
-
-// بوت "البوت بسام"
-const gameWords = [
-"قمر","باب","ليل","نجوم","سلم","عشب","كوب","طريق","شارع","كرة",
-"خشب","سكين","سيف","فأس","ملك","تاج","عصا","ملعقة","شوكة","كتاب",
-"مكتب","دولاب","مخدة","وسادة","سرير","شاي","قهوة","قدم","اصبع","ساعة"
-];
-
-let botQueue = [];
-
-async function sendBotMessage(text){
-  const msgRef=push(messagesRef);
-  await set(msgRef,{user:"البوت بسام",color:"#ff4444",text,time:new Date().toLocaleTimeString(), avatar:botAvatar});
-}
-
-function getRandomWords(count){
-  const words = [];
-  for(let i=0;i<count;i++){
-    const word = gameWords[Math.floor(Math.random()*gameWords.length)];
-    words.push(word);
-  }
-  return words;
-}
-
-onChildAdded(messagesRef, async snapshot=>{
-  const m = snapshot.val();
-  const text = m.text.trim();
-
-  if(text.startsWith("طش")){
-    const count = parseInt(text.slice(3)) || 1;
-    const words = getRandomWords(count);
-    botQueue = words;
-    const line = words.join(" . ") + " .";
-    await sendBotMessage(`✅ ${line}`);
-  }
-
-  if(text === "هات"){
-    const line = botQueue.join(" . ") + " .";
-    await sendBotMessage(`✅ ${line}`);
-  }
-});
 </script>
 
 <style>
@@ -277,7 +243,7 @@ body { font-family: "Cairo", sans-serif; background:#0e0e0e; color:#eee; margin:
 h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
 #chat { flex:1;width:95%;max-width:600px;overflow-y:auto;border:1px solid #333;padding:10px;background:#1b1b1b;border-radius:10px;text-align:left;box-sizing:border-box;}
 .message{margin-bottom:6px;line-height:1.4;word-wrap:break-word;}
-form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
+form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;position:sticky;bottom:0; background:#111;padding:5px;border-radius:6px; z-index:999;}
 input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
 #typing{font-size:14px;color:#ffd166;margin:5px;min-height:20px;word-wrap:break-word;}
@@ -286,9 +252,6 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 #users img{margin-left:5px;}
 .dots{display:inline-block;animation:blink 0.2s infinite;}
 @keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
-@media (max-width:600px){
-  #typing{font-size:15px;position:relative;bottom:0;text-align:center;white-space:normal;}
-}
 </style>
 </head>
 <body>
@@ -302,5 +265,4 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 <h3>المتصلون الآن:</h3>
 <ul id="users"></ul>
 </body>
-  </html>
-
+</html>
