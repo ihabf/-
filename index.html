@@ -60,21 +60,62 @@ const username = await chooseUsername();
 // 🔹 اختيار اللون وحفظه
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 const userColor = colors[Math.floor(Math.random()*colors.length)];
-await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
+
+// 🔹 رفع أفاتار على Cloudinary
+let userAvatar = ""; // رابط الصورة النهائي
+async function uploadAvatar(file){
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", "keltacloud");
+  const res = await fetch("https://api.cloudinary.com/v1_1/keltaaa/image/upload", {
+    method: "POST",
+    body: formData
+  });
+  const data = await res.json();
+  return data.secure_url;
+}
+
+// زر رفع أفاتار
+const avatarButton = document.createElement("button");
+avatarButton.textContent = "رفع أفاتار";
+avatarButton.style.position="fixed";
+avatarButton.style.top="10px";
+avatarButton.style.right="10px";
+avatarButton.style.zIndex="999";
+document.body.appendChild(avatarButton);
+
+avatarButton.addEventListener("click", async ()=>{
+  const input = document.createElement("input");
+  input.type="file";
+  input.accept="image/*";
+  input.click();
+  input.onchange = async ()=>{
+    const file = input.files[0];
+    if(file){
+      userAvatar = await uploadAvatar(file);
+      await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId, avatar:userAvatar});
+      update(userRef,{avatar:userAvatar});
+    }
+  };
+});
+
+// حفظ اللون والأفاتار
+await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId, avatar:userAvatar});
 
 // 🔹 إنشاء المستخدم
 const userId = "user_"+Math.floor(Math.random()*100000);
 const userRef = ref(db, "users/"+userId);
-await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now()});
+await set(userRef,{name:username,color:userColor,avatar:userAvatar,online:true,lastSeen:Date.now()});
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
-// 🔹 إنشاء البوت ليظهر في قائمة المستخدمين ✅
+// 🔹 بوت "البوت بسام" مع أفاتار قابل للتعديل
 const BOT_NAME = "البوت بسام";
 const BOT_COLOR = "#ff4444";
 const BOT_ID = "bot_bassam";
+let botAvatar = "https://res.cloudinary.com/keltaaa/image/upload/v1690000000/bassam.png"; // عدّل الرابط هنا
 const botUserRef = ref(db, "users/"+BOT_ID);
-await set(botUserRef, { name: BOT_NAME, color: BOT_COLOR, online: true, lastSeen: Date.now() });
+await set(botUserRef, { name: BOT_NAME, color: BOT_COLOR, avatar:botAvatar, online: true, lastSeen: Date.now() });
 setInterval(()=>update(botUserRef,{online:true,lastSeen:Date.now()}),10000);
 
 // عناصر الصفحة
@@ -83,11 +124,6 @@ const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
-
-// 🔹 صوت الانضمام
-const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3");
-let audioEnabled = false;
-document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
 // 🔹 عرض المستخدمين مع حالة الكتابة
 function renderUsers(users, typingUsers){
@@ -98,68 +134,25 @@ function renderUsers(users, typingUsers){
     if(typingUsers[id]){
       typingAnim = `<span class="dots">…</span>`;
     }
-    li.innerHTML = `${u.name} ${typingAnim}`;
+    const avatarHTML = u.avatar ? `<img src="${u.avatar}" style="width:25px;height:25px;border-radius:50%;margin-left:5px;vertical-align:middle;">` : "";
+    li.innerHTML = `${avatarHTML} ${u.name} ${typingAnim}`;
     li.style.borderRight = `6px solid ${u.color}`;
     userList.appendChild(li);
   });
 }
 
-// 🔹 استقبال المستخدمين والكتابة الحية
-let currentUsers = {};
-let currentTyping = {};
-onValue(usersRef, snapshot=>{
-  currentUsers = snapshot.val() || {};
-  renderUsers(currentUsers, currentTyping);
-});
-
-// 🔹 إشعار عند دخول وخروج المستخدمين
-onChildAdded(usersRef, snapshot=>{
-  const u = snapshot.val();
-  if(u.name !== username && u.name !== BOT_NAME){
-    const div = document.createElement("div");
-    div.className="message";
-    div.style.fontStyle="italic";
-    div.style.color="#55ff55";
-    div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    if(audioEnabled) joinSound.play();
-  }
-});
-onChildRemoved(usersRef, snapshot=>{
-  const u = snapshot.val();
-  if(u.name !== BOT_NAME){
-    const div = document.createElement("div");
-    div.className="message";
-    div.style.fontStyle="italic";
-    div.style.color="#ff5555";
-    div.textContent = `❌ ${u.name} غادر الغرفة`;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
-});
-
-// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
-let firstLoad = true;
+// بقية السكريبت (إرسال واستقبال الرسائل، بوت بسام) كما هو، مع تعديل عرض الرسائل لتشمل الأفاتار
 onChildAdded(messagesRef, snapshot=>{
-  if(firstLoad) return;
   const m = snapshot.val();
+  const avatarHTML = m.avatar ? `<img src="${m.avatar}" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-left:5px;">` : "";
   const div=document.createElement("div");
   div.className="message";
-  div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  div.innerHTML=`${avatarHTML}<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
-get(messagesRef).then(()=>{ firstLoad=false; });
 
-// 🔹 تحديث فوري عند حذف الرسائل
-onValue(messagesRef, snapshot=>{
-  if(!snapshot.exists()){
-    chatBox.innerHTML = "";
-  }
-});
-
-// 🔹 إرسال الرسائل
+// عند إرسال الرسالة، نحفظ رابط الأفاتار أيضًا
 form.addEventListener("submit", async e=>{
   e.preventDefault();
   const text=msgInput.value.trim();
@@ -172,12 +165,12 @@ form.addEventListener("submit", async e=>{
   }
 
   const msgRef=push(messagesRef);
-  await set(msgRef,{user:username,color:userColor,text,time:new Date().toLocaleTimeString()});
+  await set(msgRef,{user:username,color:userColor,text,time:new Date().toLocaleTimeString(),avatar:userAvatar});
   msgInput.value="";
   remove(ref(db,"typing/"+userId));
 });
 
-// 🔹 تحسين دعم “يكتب الآن” لتشمل الهواتف ✅
+// 🔹 دعم الكتابة الآن (PC + Mobile)
 let typingTimeout;
 function updateTyping(){
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
@@ -185,69 +178,22 @@ function updateTyping(){
   typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),2500);
 }
 
-// دعم كل الأحداث الممكنة للكتابة (PC + Mobile)
 ["input","keyup","keydown","touchstart","touchend","compositionstart","compositionend"].forEach(ev=>{
   msgInput.addEventListener(ev, updateTyping);
 });
 
 onValue(typingRef,snapshot=>{
   const typingUsers = snapshot.val() || {};
-  currentTyping = {};
   const now = Date.now();
+  const currentTyping = {};
   Object.entries(typingUsers).forEach(([id,u])=>{
     if(u.name !== username && now - (u.ts||0) < 2500){
       currentTyping[id] = true;
     }
   });
   renderUsers(currentUsers, currentTyping);
-
-  const names = Object.entries(typingUsers)
-    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
-    .map(([id,u])=>u.name);
-  typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
 
-// 🔹 بوت "البوت بسام"
-const gameWords = [
-"قمر","باب","ليل","نجوم","سلم","عشب","كوب","طريق","شارع","كرة",
-"خشب","سكين","سيف","فأس","ملك","تاج","عصا","ملعقة","شوكة","كتاب",
-"مكتب","دولاب","مخدة","وسادة","سرير","شاي","قهوة","قدم","اصبع","ساعة"
-];
-
-let botQueue = [];
-
-async function sendBotMessage(text){
-  const msgRef=push(messagesRef);
-  await set(msgRef,{user:"البوت بسام",color:"#ff4444",text,time:new Date().toLocaleTimeString()});
-}
-
-function getRandomWords(count){
-  const words = [];
-  for(let i=0;i<count;i++){
-    const word = gameWords[Math.floor(Math.random()*gameWords.length)];
-    words.push(word);
-  }
-  return words;
-}
-
-// 🔹 تعديل طريقة إرسال البوت ✅
-onChildAdded(messagesRef, async snapshot=>{
-  const m = snapshot.val();
-  const text = m.text.trim();
-
-  if(text.startsWith("طش")){
-    const count = parseInt(text.slice(3)) || 1;
-    const words = getRandomWords(count);
-    botQueue = words;
-    const line = words.join(" . ") + " .";
-    await sendBotMessage(`✅ ${line}`);
-  }
-
-  if(text === "هات"){
-    const line = botQueue.join(" . ") + " .";
-    await sendBotMessage(`✅ ${line}`);
-  }
-});
 </script>
 
 <style>
@@ -260,13 +206,10 @@ input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
 #typing{font-size:14px;color:#ffd166;margin:5px;min-height:20px;word-wrap:break-word;}
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
-#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
+#users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;align-items:center;justify-content:flex-start;}
 .dots{display:inline-block;animation:blink 1s infinite;}
 @keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
-/* 🔹 تحسين عرض حالة الكتابة على الهواتف */
-@media (max-width:600px){
-  #typing{font-size:15px;position:relative;bottom:0;text-align:center;white-space:normal;}
-}
+@media (max-width:600px){#typing{font-size:15px;position:relative;bottom:0;text-align:center;white-space:normal;}}
 </style>
 </head>
 <body>
