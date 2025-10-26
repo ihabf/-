@@ -65,7 +65,7 @@ const userColor = colors[Math.floor(Math.random()*colors.length)];
 async function uploadAvatar(file){
   try {
     const url = "https://api.cloudinary.com/v1_1/keltaaa/image/upload";
-    const preset = "unsigned"; // تأكد أن هذا preset موجود في حسابك Cloudinary
+    const preset = "keltacloud"; // preset الخاص بك
     const formData = new FormData();
     formData.append("file", file);
     formData.append("upload_preset", preset);
@@ -83,7 +83,7 @@ async function uploadAvatar(file){
 let defaultAvatar = "https://i.imgur.com/2yaf2wb.png";
 let userAvatar = localStorage.getItem("chat_avatar") || defaultAvatar;
 
-// حفظ اللون والأفاتار
+// حفظ اللون والأفاتار في savedUsers
 await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId, avatar:userAvatar});
 
 // 🔹 إنشاء المستخدم
@@ -109,7 +109,7 @@ const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 
-// 🔹 رفع أفاتار
+// 🔹 رفع أفاتار من قبل المستخدم
 const avatarInput = document.createElement("input");
 avatarInput.type = "file";
 avatarInput.accept = "image/*";
@@ -126,7 +126,9 @@ avatarInput.addEventListener("change", async e=>{
   if(!url) return;
   userAvatar = url;
   localStorage.setItem("chat_avatar", url);
+  // تحديث المستخدم في Firebase
   update(userRef, {avatar:userAvatar});
+  // تحديث savedUsers أيضاً
   await set(ref(db, "savedUsers/"+username+"/avatar"), userAvatar);
 });
 
@@ -151,7 +153,7 @@ onValue(usersRef, snapshot=>{
   renderUsers(currentUsers, currentTyping);
 });
 
-// إشعار دخول وخروج المستخدمين بدون أصوات
+// إشعار دخول وخروج المستخدمين
 onChildAdded(usersRef, snapshot=>{
   const u = snapshot.val();
   if(u.name !== username && u.name !== BOT_NAME){
@@ -179,7 +181,7 @@ onChildRemoved(usersRef, snapshot=>{
   }
 });
 
-// استقبال الرسائل الجديدة
+// استقبال الرسائل
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
@@ -193,7 +195,7 @@ onChildAdded(messagesRef, snapshot=>{
 });
 get(messagesRef).then(()=>{ firstLoad=false; });
 
-// إرسال الرسائل بسرعة قصوى
+// إرسال الرسائل
 form.addEventListener("submit", async e=>{
   e.preventDefault();
   const text=msgInput.value.trim();
