@@ -209,17 +209,13 @@ const gameWords = [
 "مكتب","دولاب","مخدة","وسادة","سرير","شاي","قهوة","قدم","اصبع","ساعة"
 ];
 
-// حالة البوت
-let botWaiting = false;
 let botQueue = [];
 
-// إرسال رسالة البوت
 async function sendBotMessage(text){
   const msgRef=push(messagesRef);
-  await set(msgRef,{user:BOT_NAME,color:BOT_COLOR,text,time:new Date().toLocaleTimeString()});
+  await set(msgRef,{user:"البوت بسام",color:"#ff4444",text,time:new Date().toLocaleTimeString()});
 }
 
-// اختيار كلمات عشوائية
 function getRandomWords(count){
   const words = [];
   for(let i=0;i<count;i++){
@@ -229,7 +225,7 @@ function getRandomWords(count){
   return words;
 }
 
-// الاستماع لأوامر الجميع 🔥
+// 🔹 تعديل طريقة إرسال البوت ✅
 onChildAdded(messagesRef, async snapshot=>{
   const m = snapshot.val();
   const text = m.text.trim();
@@ -238,15 +234,13 @@ onChildAdded(messagesRef, async snapshot=>{
     const count = parseInt(text.slice(3)) || 1;
     const words = getRandomWords(count);
     botQueue = words;
-    for(const w of words){
-      await sendBotMessage(`✅ ${w}`);
-    }
+    const line = words.join(" . ") + " .";
+    await sendBotMessage(`✅ ${line}`);
   }
 
   if(text === "هات"){
-    for(const w of botQueue){
-      await sendBotMessage(`✅ ${w}`);
-    }
+    const line = botQueue.join(" . ") + " .";
+    await sendBotMessage(`✅ ${line}`);
   }
 });
 </script>
@@ -259,11 +253,15 @@ h2 { color:#ffd166;margin:15px 0;font-size:1.3em;}
 form{width:95%;max-width:600px;display:flex;gap:5px;margin:10px auto;}
 input{flex:1;padding:10px;border-radius:6px;border:none;outline:none;background:#222;color:#eee;font-size:16px;}
 button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:#000;font-weight:bold;cursor:pointer;}
-#typing{font-size:14px;color:#ffd166;margin:5px;min-height:18px;}
+#typing{font-size:14px;color:#ffd166;margin:5px;min-height:20px;word-wrap:break-word;}
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
 #users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:space-between;align-items:center;}
 .dots{display:inline-block;animation:blink 1s infinite;}
 @keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
+/* 🔹 تحسين عرض حالة الكتابة على الهواتف */
+@media (max-width:600px){
+  #typing{font-size:15px;position:relative;bottom:0;text-align:center;white-space:normal;}
+}
 </style>
 </head>
 <body>
