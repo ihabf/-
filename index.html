@@ -63,8 +63,8 @@ const userColor = colors[Math.floor(Math.random()*colors.length)];
 
 // 🔹 رفع أفاتار (صورة افتراضية إذا لم يرفع المستخدم)
 async function uploadAvatar(file){
-  const url = "https://api.cloudinary.com/v1_1/demo/image/upload"; // ضع رابطك الخاص إذا أردت
-  const preset = "unsigned_preset";
+  const url = "https://api.cloudinary.com/v1_1/keltaaa/image/upload"; // حسابك Cloudinary
+  const preset = "unsigned"; // اسم الـ unsigned preset الخاص بك
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", preset);
@@ -85,7 +85,7 @@ const userId = "user_"+Math.floor(Math.random()*100000);
 const userRef = ref(db, "users/"+userId);
 await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now(), avatar:userAvatar});
 onDisconnect(userRef).remove();
-setInterval(()=>update(userRef,{online:true,lastSeen:Date.now(), avatar:userAvatar}),500); // تسريع التحديث
+setInterval(()=>update(userRef,{online:true,lastSeen:Date.now(), avatar:userAvatar}),500);
 
 // 🔹 بوت البوت بسام
 const BOT_NAME = "البوت بسام";
@@ -207,7 +207,7 @@ let typingTimeout;
 function updateTyping(){
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
   clearTimeout(typingTimeout);
-  typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),100); // أسرع استجابة ممكنة
+  typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),100);
 }
 ["input","keyup","keydown","compositionstart","compositionend"].forEach(ev=>{
   msgInput.addEventListener(ev, updateTyping);
@@ -302,4 +302,4 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 <h3>المتصلون الآن:</h3>
 <ul id="users"></ul>
 </body>
-</html>
+  </html>
