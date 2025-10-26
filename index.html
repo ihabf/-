@@ -58,7 +58,7 @@ async function chooseUsername() {
 const username = await chooseUsername();
 
 // 🔹 اختيار اللون وحفظه
-const colors = ["#ff6b6b","#feca57","#ff9ff3","#48dbfb","#1dd1a1","#5f27cd","#ee5253","#0abde3"];
+const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 const userColor = colors[Math.floor(Math.random()*colors.length)];
 await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
 
@@ -75,12 +75,9 @@ const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
-const toggleBtn = document.getElementById("toggleMode");
 
-// 🔹 أصوات قصيرة وسريعة
-const soundJoin = new Audio("https://www.soundjay.com/button/sounds/button-3.mp3");
-const soundLeave = new Audio("https://www.soundjay.com/button/sounds/button-10.mp3");
-const soundTyping = new Audio("https://www.soundjay.com/button/sounds/button-16.mp3");
+// 🔹 صوت الانضمام
+const joinSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound.mp3");
 let audioEnabled = false;
 document.addEventListener('click',()=>{ audioEnabled=true; }, {once:true});
 
@@ -89,9 +86,12 @@ function renderUsers(users, typingUsers){
   userList.innerHTML = "";
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
-    li.textContent = u.name;
+    let typingAnim = "";
+    if(typingUsers[id]){
+      typingAnim = `<span class="dots">…</span>`;
+    }
+    li.innerHTML = `${u.name} ${typingAnim}`;
     li.style.borderRight = `6px solid ${u.color}`;
-    if(typingUsers[id]) li.innerHTML += ` <span class="dots">…</span>`;
     userList.appendChild(li);
   });
 }
@@ -109,30 +109,33 @@ onChildAdded(usersRef, snapshot=>{
   const u = snapshot.val();
   if(u.name !== username){
     const div = document.createElement("div");
-    div.className="message system";
+    div.className="message";
+    div.style.fontStyle="italic";
+    div.style.color="#55ff55";
     div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
-    if(audioEnabled) soundJoin.play();
+    if(audioEnabled) joinSound.play();
   }
 });
 onChildRemoved(usersRef, snapshot=>{
   const u = snapshot.val();
   const div = document.createElement("div");
-  div.className="message system leave";
+  div.className="message";
+  div.style.fontStyle="italic";
+  div.style.color="#ff5555";
   div.textContent = `❌ ${u.name} غادر الغرفة`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
-  if(audioEnabled) soundLeave.play();
 });
 
-// 🔹 استقبال الرسائل الجديدة
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
   const m = snapshot.val();
   const div=document.createElement("div");
-  div.className="message "+(m.user===username?"mine":"other");
+  div.className="message";
   div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
@@ -141,259 +144,234 @@ get(messagesRef).then(()=>{ firstLoad=false; });
 
 // 🔹 تحديث فوري عند حذف الرسائل
 onValue(messagesRef, snapshot=>{
-  if(!snapshot.exists()) chatBox.innerHTML = "";
+  if(!snapshot.exists()){
+    chatBox.innerHTML = "";
+  }
 });
 
-// 🔹 إرسال الرسائل بسرعة قصوى
-form.addEventListener("submit", e=>{
+// 🔹 إرسال الرسائل
+form.addEventListener("submit", async e=>{
   e.preventDefault();
-  const text = msgInput.value.trim();
+  const text=msgInput.value.trim();
   if(!text) return;
 
-  if(text.startsWith("/delete") && username === ADMIN_NAME){
-    remove(messagesRef);
+  if(text.startsWith("/delete") && username===ADMIN_NAME){
+    await remove(messagesRef);
     msgInput.value="";
     return;
   }
 
-  push(messagesRef, {
-    user: username,
-    color: userColor,
-    text,
-    time: new Date().toLocaleTimeString()
-  });
-
+  const msgRef=push(messagesRef);
+  await set(msgRef,{user:username,color:userColor,text,time:new Date().toLocaleTimeString()});
   msgInput.value="";
-  msgInput.focus();
   remove(ref(db,"typing/"+userId));
 });
 
-// 🔹 الكتابة الحية مع تحسين التتبع
+// 🔹 الكتابة الحية مع نقاط متحركة
+let typingTimeout;
 msgInput.addEventListener("input", ()=>{
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
-  if(audioEnabled) soundTyping.play();
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),2500);
 });
 
-onValue(typingRef, snapshot=>{
+onValue(typingRef,snapshot=>{
   const typingUsers = snapshot.val() || {};
   currentTyping = {};
   const now = Date.now();
   Object.entries(typingUsers).forEach(([id,u])=>{
-    if(u.name !== username && now - (u.ts||0) < 2000) currentTyping[id] = true;
+    if(u.name !== username && now - (u.ts||0) < 2500){
+      currentTyping[id] = true;
+    }
   });
   renderUsers(currentUsers, currentTyping);
-});
 
-// 🔹 تحديث نص "يكتب الآن..." بشكل دوري
-function updateTypingText() {
-  const now = Date.now();
-  const names = Object.entries(currentTyping)
-    .map(([id]) => currentUsers[id]?.name)
-    .filter(name => name);
+  // الرسالة أسفل الدردشة
+  const names = Object.entries(typingUsers)
+    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<2500)
+    .map(([id,u])=>u.name);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
-}
-setInterval(updateTypingText, 500);
-
-// 🔹 تبديل الوضع
-toggleBtn.addEventListener("click", ()=>{
-  document.body.classList.toggle("light");
-  localStorage.setItem("theme",document.body.classList.contains("light")?"light":"dark");
 });
-if(localStorage.getItem("theme")==="light") document.body.classList.add("light");
-
 </script>
 
 <style>
-body {
-  font-family: "Cairo", "Segoe UI", Arial, sans-serif;
-  background: #222e35;
-  color: #fff;
-  margin: 0;
-  padding: 0;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100vh;
-  box-sizing: border-box;
+body { 
+    font-family: "Cairo", sans-serif; 
+    background: #000000; 
+    color: #eee; 
+    margin: 0; 
+    padding: 0; 
+    text-align: center; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    height: 100vh;
 }
 
-h2 {
-  color: #229ed9;
-  margin: 18px 0 8px 0;
-  font-size: 1.5em;
-  font-weight: 700;
-  letter-spacing: 1px;
+h2 { 
+    color: #ffffff;
+    margin: 15px 0;
+    font-size: 1.3em;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* خانة المتصلون الآن فوق الشات */
-#users-container {
-  width: 100vw;
-  max-width: 100vw;
-  margin-bottom: 8px;
+#chat { 
+    flex: 1;
+    width: 95%;
+    max-width: 600px;
+    overflow-y: auto;
+    border: none;
+    padding: 20px;
+    background: #111111;
+    border-radius: 15px;
+    text-align: left;
+    box-sizing: border-box;
+    /* استخدم التخطيط المرن instead of fixed height */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    scrollbar-width: thin;
+    scrollbar-color: #333 #111111;
 }
 
-#chat {
-  width: 100vw;
-  max-width: 100vw;
-  min-height: 0;
-  overflow-y: auto;
-  border: none;
-  padding: 12px 0;
-  background: #1b232a;
-  border-radius: 0 0 18px 18px;
-  text-align: left;
-  box-sizing: border-box;
-  margin-bottom: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 0px; /* مسافة من الأعلى */
+#chat::-webkit-scrollbar {
+    width: 6px;
+}
+
+#chat::-webkit-scrollbar-track {
+    background: #111111;
+}
+
+#chat::-webkit-scrollbar-thumb {
+    background-color: #333;
+    border-radius: 3px;
 }
 
 .message {
-  display: inline-block;
-  margin: 0 8vw 8px 8vw;
-  line-height: 1.5;
-  word-break: break-word;
-  background: #222e35;
-  border-radius: 12px 12px 12px 0;
-  padding: 8px 12px;
-  max-width: 85vw;
-  min-width: 48px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.07);
-  font-size: 1em;
-  position: relative;
-  border: 1px solid #232d36;
-  text-align: right;
+    margin-bottom: 12px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    background: #1a1a1a;
+    padding: 10px 15px;
+    border-radius: 15px;
+    max-width: 80%;
+    position: relative;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.message strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.9em;
 }
 
 form {
-  width: 100vw;
-  max-width: 100vw;
-  display: flex;
-  gap: 6px;
-  margin: 0;
-  padding: 10px 0;
-  background: #222e35;
-  border-radius: 0 0 18px 18px;
-  box-shadow: 0 -1px 4px rgba(0,0,0,0.07);
-  position: sticky;
-  bottom: 0;
+    width: 95%;
+    max-width: 800px;
+    display: flex;
+    gap: 10px;
+    margin: 15px auto;
+    padding: 10px;
+    background: #111111;
+    border-radius: 15px;
 }
 
 input {
-  flex: 1;
-  padding: 12px 14px;
-  border-radius: 24px;
-  border: none;
-  outline: none;
-  background: #2a3942;
-  color: #fff;
-  font-size: 1em;
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: 25px;
+    border: 1px solid #333;
+    outline: none;
+    background: #1a1a1a;
+    color: #fff;
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+}
+
+input:focus {
+    border-color: #0084ff;
 }
 
 button {
-  padding: 0 18px;
-  border: none;
-  border-radius: 24px;
-  background: #229ed9;
-  color: #fff;
-  font-weight: bold;
-  font-size: 1em;
-  cursor: pointer;
-  height: 44px;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 25px;
+    background: #0084ff;
+    color: #fff;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background: #0073e6;
 }
 
 #typing {
-  font-size: 15px;
-  color: #229ed9;
-  margin: 4px 0 0 0;
-  min-height: 18px;
-  text-align: right;
-  width: 100vw;
-  max-width: 100vw;
-  padding-right: 18px;
+    font-size: 14px;
+    color: #999;
+    margin: 5px;
+    min-height: 18px;
 }
 
 #users {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  width: 100vw;
-  max-width: 100vw;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+    list-style: none;
+    padding: 0;
+    margin: 15px 0;
+    width: 95%;
+    max-width: 800px;
 }
 
 #users li {
-  background: #2a3942;
-  margin: 0 8vw;
-  padding: 10px 14px;
-  border-radius: 12px;
-  text-align: right;
-  font-weight: 600;
-  border-right: 6px solid #229ed9;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: #fff;
-  font-size: 1em;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+    background: #1a1a1a;
+    margin: 8px 0;
+    padding: 12px 15px;
+    border-radius: 12px;
+    text-align: right;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: transform 0.2s ease;
+}
+
+#users li:hover {
+    transform: translateX(-5px);
 }
 
 .dots {
-  display: inline-block;
-  animation: blink 1s infinite;
-  color: #ffd166;
-  font-size: 1.2em;
-  margin-right: 4px;
+    display: inline-block;
+    animation: blink 1s infinite;
 }
 
 @keyframes blink {
-  0%,100%{opacity:0;}
-  50%{opacity:1;}
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
 }
 
-/* Scrollbar */
-#chat::-webkit-scrollbar { width: 6px; background: #232d36; border-radius: 6px;}
-#chat::-webkit-scrollbar-thumb { background: #229ed9; border-radius: 6px; }
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 
-/* الهواتف */
-@media (max-width: 767px) {
-  #chat, form, #users, #typing, #users-container {
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  #chat { margin-top: 80px; }
+@media screen and (max-width: 768px) {
+    #chat {
+        height: 500px;
+    }
+    
+    .message {
+        max-width: 90%;
+    }
 }
 </style>
-
-
-
 </head>
 <body>
 <h2>💬 دردشة مؤقتة</h2>
-<button id="toggleMode">تبديل الوضع</button>
-
-<!-- قائمة المستخدمين الآن فوق الشات -->
-<h3>المتصلون الآن:</h3>
-<ul id="users"></ul>
-
-<!-- مربع الدردشة -->
 <div id="chat"></div>
 <div id="typing"></div>
-
-<!-- حقل الكتابة -->
 <form id="chatForm">
-  <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+  <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
   <button>إرسال</button>
 </form>
-
+<h3>المتصلون الآن:</h3>
+<ul id="users"></ul>
 </body>
 </html>
-
-
-
