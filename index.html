@@ -61,7 +61,7 @@ const username = await chooseUsername();
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 const userColor = colors[Math.floor(Math.random()*colors.length)];
 
-// 🔹 رفع أفاتار (صورة افتراضية إذا لم يختار المستخدم)
+// 🔹 رفع أفاتار (صورة افتراضية إذا لم يرفع المستخدم)
 async function uploadAvatar(file){
   const url = "https://api.cloudinary.com/v1_1/demo/image/upload"; // ضع رابطك الخاص إذا أردت
   const preset = "unsigned_preset";
@@ -73,7 +73,9 @@ async function uploadAvatar(file){
   return data.secure_url;
 }
 
-let userAvatar = localStorage.getItem("chat_avatar") || "https://i.imgur.com/empty.png";
+// رابط صورة افتراضية صحيحة
+let defaultAvatar = "https://i.imgur.com/2yaf2wb.png";
+let userAvatar = localStorage.getItem("chat_avatar") || defaultAvatar;
 
 // حفظ اللون والأفاتار
 await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId, avatar:userAvatar});
@@ -83,15 +85,15 @@ const userId = "user_"+Math.floor(Math.random()*100000);
 const userRef = ref(db, "users/"+userId);
 await set(userRef,{name:username,color:userColor,online:true,lastSeen:Date.now(), avatar:userAvatar});
 onDisconnect(userRef).remove();
-setInterval(()=>update(userRef,{online:true,lastSeen:Date.now(), avatar:userAvatar}),1000); // تسريع التحديث
+setInterval(()=>update(userRef,{online:true,lastSeen:Date.now(), avatar:userAvatar}),500); // تسريع التحديث
 
 // 🔹 بوت البوت بسام
 const BOT_NAME = "البوت بسام";
 const BOT_COLOR = "#ff4444";
 const BOT_ID = "bot_bassam";
-let botAvatar = "https://i.imgur.com/empty.png"; // صورة افتراضية للبوت
+let botAvatar = defaultAvatar;
 const botUserRef = ref(db, "users/"+BOT_ID);
-await set(botUserRef, { name: BOT_NAME, color: BOT_COLOR, online: true, lastSeen: Date.now(), avatar: botAvatar });
+await set(botUserRef, { name: BOT_NAME, color: BOT_COLOR, online: true, lastSeen: Date.now(), avatar:botAvatar });
 setInterval(()=>update(botUserRef,{online:true,lastSeen:Date.now(), avatar:botAvatar}),2000);
 
 // عناصر الصفحة
@@ -127,7 +129,7 @@ function renderUsers(users, typingUsers){
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
     const typingAnim = typingUsers[id] ? `<span class="dots">…</span>` : "";
-    const avatarHTML = u.avatar ? `<img src="${u.avatar}" style="width:25px;height:25px;border-radius:50%;margin-left:5px;vertical-align:middle;">` : "";
+    const avatarHTML = u.avatar ? `<img src="${u.avatar}" style="width:25px;height:25px;border-radius:50%;margin-left:5px;vertical-align:middle;">` : `<img src="${defaultAvatar}" style="width:25px;height:25px;border-radius:50%;margin-left:5px;vertical-align:middle;">`;
     li.innerHTML = `${avatarHTML} ${u.name} ${typingAnim}`;
     li.style.borderRight = `6px solid ${u.color}`;
     userList.appendChild(li);
@@ -150,7 +152,7 @@ onChildAdded(usersRef, snapshot=>{
     div.className="message";
     div.style.fontStyle="italic";
     div.style.color="#55ff55";
-    const avatarHTML = u.avatar ? `<img src="${u.avatar}" style="width:20px;height:20px;border-radius:50%;margin-left:5px;vertical-align:middle;">` : "";
+    const avatarHTML = u.avatar ? `<img src="${u.avatar}" style="width:20px;height:20px;border-radius:50%;margin-left:5px;vertical-align:middle;">` : `<img src="${defaultAvatar}" style="width:20px;height:20px;border-radius:50%;margin-left:5px;vertical-align:middle;">`;
     div.innerHTML = `${avatarHTML} ✅ ${u.name} انضم إلى الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -163,7 +165,7 @@ onChildRemoved(usersRef, snapshot=>{
     div.className="message";
     div.style.fontStyle="italic";
     div.style.color="#ff5555";
-    const avatarHTML = u.avatar ? `<img src="${u.avatar}" style="width:20px;height:20px;border-radius:50%;margin-left:5px;vertical-align:middle;">` : "";
+    const avatarHTML = u.avatar ? `<img src="${u.avatar}" style="width:20px;height:20px;border-radius:50%;margin-left:5px;vertical-align:middle;">` : `<img src="${defaultAvatar}" style="width:20px;height:20px;border-radius:50%;margin-left:5px;vertical-align:middle;">`;
     div.innerHTML = `${avatarHTML} ❌ ${u.name} غادر الغرفة`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -175,7 +177,7 @@ let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
   const m = snapshot.val();
-  const avatarHTML = m.avatar ? `<img src="${m.avatar}" style="width:20px;height:20px;border-radius:50%;margin-left:5px;vertical-align:middle;">` : "";
+  const avatarHTML = m.avatar ? `<img src="${m.avatar}" style="width:20px;height:20px;border-radius:50%;margin-left:5px;vertical-align:middle;">` : `<img src="${defaultAvatar}" style="width:20px;height:20px;border-radius:50%;margin-left:5px;vertical-align:middle;">`;
   const div=document.createElement("div");
   div.className="message";
   div.innerHTML=`${avatarHTML} <strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
@@ -205,7 +207,7 @@ let typingTimeout;
 function updateTyping(){
   set(ref(db,"typing/"+userId),{name:username, ts:Date.now()});
   clearTimeout(typingTimeout);
-  typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),500); // تقليل الفترة لزيادة السرعة
+  typingTimeout = setTimeout(()=>remove(ref(db,"typing/"+userId)),100); // أسرع استجابة ممكنة
 }
 ["input","keyup","keydown","compositionstart","compositionend"].forEach(ev=>{
   msgInput.addEventListener(ev, updateTyping);
@@ -216,14 +218,14 @@ onValue(typingRef,snapshot=>{
   currentTyping = {};
   const now = Date.now();
   Object.entries(typingUsers).forEach(([id,u])=>{
-    if(u.name !== username && now - (u.ts||0) < 500){
+    if(u.name !== username && now - (u.ts||0) < 100){
       currentTyping[id] = true;
     }
   });
   renderUsers(currentUsers, currentTyping);
 
   const names = Object.entries(typingUsers)
-    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<500)
+    .filter(([id,u])=>u.name!==username && now-(u.ts||0)<100)
     .map(([id,u])=>u.name);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
@@ -282,7 +284,7 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 #users{list-style:none;padding:0;margin:10px 0;width:90%;max-width:400px;}
 #users li{background:#222;margin:5px 0;padding:8px;border-radius:6px;text-align:right;font-weight:600;border-right:6px solid #666;display:flex;justify-content:flex-end;align-items:center;}
 #users img{margin-left:5px;}
-.dots{display:inline-block;animation:blink 0.5s infinite;}
+.dots{display:inline-block;animation:blink 0.2s infinite;}
 @keyframes blink{0%,100%{opacity:0;}50%{opacity:1;}}
 @media (max-width:600px){
   #typing{font-size:15px;position:relative;bottom:0;text-align:center;white-space:normal;}
@@ -300,4 +302,4 @@ button{padding:10px 15px;border:none;border-radius:6px;background:#06d6a0;color:
 <h3>المتصلون الآن:</h3>
 <ul id="users"></ul>
 </body>
-  </html>
+</html>
