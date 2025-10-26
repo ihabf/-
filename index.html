@@ -226,6 +226,13 @@ h2 {
   letter-spacing: 1px;
 }
 
+/* خانة المتصلون الآن فوق الشات */
+#users-container {
+  width: 100vw;
+  max-width: 100vw;
+  margin-bottom: 8px;
+}
+
 #chat {
   flex: 1;
   width: 100vw;
@@ -242,7 +249,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 80px; /* على الكمبيوتر */
+  margin-top: 20px; /* مسافة من الأعلى */
 }
 
 .message {
@@ -260,11 +267,6 @@ h2 {
   position: relative;
   border: 1px solid #232d36;
   text-align: right;
-}
-
-.message strong {
-  font-weight: 700;
-  color: #229ed9;
 }
 
 form {
@@ -318,7 +320,7 @@ button {
 #users {
   list-style: none;
   padding: 0;
-  margin: 0 0 10px 0;
+  margin: 0;
   width: 100vw;
   max-width: 100vw;
   display: flex;
@@ -355,12 +357,13 @@ button {
   50%{opacity:1;}
 }
 
+/* Scrollbar */
 #chat::-webkit-scrollbar { width: 6px; background: #232d36; border-radius: 6px;}
 #chat::-webkit-scrollbar-thumb { background: #229ed9; border-radius: 6px; }
 
-/* ميديا للهواتف */
+/* الهواتف */
 @media (max-width: 767px) {
-  #chat, form, #users, #typing {
+  #chat, form, #users, #typing, #users-container {
     max-width: 600px;
     margin-left: auto;
     margin-right: auto;
@@ -370,18 +373,27 @@ button {
 </style>
 
 
+
 </head>
 <body>
 <h2>💬 دردشة مؤقتة</h2>
 <button id="toggleMode">تبديل الوضع</button>
+
+<!-- قائمة المستخدمين الآن فوق الشات -->
+<h3>المتصلون الآن:</h3>
+<ul id="users"></ul>
+
+<!-- مربع الدردشة -->
 <div id="chat"></div>
 <div id="typing"></div>
+
+<!-- حقل الكتابة -->
 <form id="chatForm">
   <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
   <button>إرسال</button>
 </form>
-<h3>المتصلون الآن:</h3>
-<ul id="users"></ul>
+
 </body>
 </html>
+
 
