@@ -201,23 +201,58 @@ onValue(messagesRef, snapshot=>{
   }
 });
 
-// 🔹 إرسال الرسائل
-form.addEventListener("submit", async e=>{
+// 🔹 إرسال الرسائل بسرعة قصوى
+form.addEventListener("submit", e=>{
   e.preventDefault();
-  const text=msgInput.value.trim();
+  const text = msgInput.value.trim();
   if(!text) return;
 
-  if(text.startsWith("/delete") && username===ADMIN_NAME){
-    await remove(messagesRef);
-    msgInput.value="";
+  if(text.startsWith("/delete") && username === ADMIN_NAME){
+    remove(messagesRef);
+    msgInput.value = "";
+    msgInput.focus();
     return;
   }
 
-  const msgRef=push(messagesRef);
-  await set(msgRef,{user:username,color:userColor,text,time:new Date().toLocaleTimeString()});
-  msgInput.value="";
+  // إرسال الرسالة مباشرة بدون انتظار
+  push(messagesRef, {
+    user: username,
+    color: userColor,
+    text,
+    time: new Date().toLocaleTimeString()
+  });
+
+  msgInput.value = "";
+  msgInput.focus(); // للحفاظ على التركيز بعد الإرسال
   remove(ref(db,"typing/"+userId));
-    if(audioEnabled) playBeep({freq:900, volume:0.7, duration:0.045}); // صوت إرسال مميز
+  if(audioEnabled) playBeep({freq:900, volume:0.7, duration:0.045});
+});
+
+// إرسال فوري عند ضغط Enter (بدون Shift)
+msgInput.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    const text = msgInput.value.trim();
+    if(!text) return;
+
+    if(text.startsWith("/delete") && username === ADMIN_NAME){
+      remove(messagesRef);
+      msgInput.value = "";
+      msgInput.focus();
+      return;
+    }
+
+    push(messagesRef, {
+      user: username,
+      color: userColor,
+      text,
+      time: new Date().toLocaleTimeString()
+    });
+    msgInput.value = "";
+    msgInput.focus();
+    remove(ref(db,"typing/"+userId));
+    if(audioEnabled) playBeep({freq:900, volume:0.7, duration:0.045});
+  }
 });
 
 // 🔹 الكتابة الحية مع نقاط متحركة
@@ -248,18 +283,21 @@ onValue(typingRef,snapshot=>{
 </script>
 
 <style>
-body { 
-    font-family: "Cairo", sans-serif; 
-    background: #000000; 
-    color: #eee; 
-    margin: 0; 
-    padding: 0; 
-    text-align: center; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    min-height: 100vh;
-    position: relative;
+body {
+  font-family: "Cairo", sans-serif;
+  background: #000000;
+  color: #eee;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 600px;      /* ارتفاع ثابت للصفحة بالكامل */
+  min-height: 600px;
+  max-height: 600px;
+  overflow: hidden;   /* يمنع السكرول */
+  position: relative;
 }
 
 h2 { 
@@ -269,23 +307,24 @@ h2 {
     text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+/* الشات: افتراضي متجاوب */
+/* الشات: حجم ثابت لا يتمدد مع الكتابة */
 #chat {
-    flex: 1;
-    width: 95%;
-    max-width: 900px;
-    height: 550px; /* ارتفاع عادي افتراضي */
-    overflow-y: auto;
-    border: none;
-    padding: 20px;
-    background: #111111;
-    border-radius: 15px;
-    text-align: left;
-    box-sizing: border-box;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    scrollbar-width: thin;
-    scrollbar-color: #333 #111111;
-    position: relative;
-    -webkit-overflow-scrolling: touch; /* تمرير سلس على iOS */
+  width: 95%;
+  max-width: 600px;
+  height: 25%;         /* ارتفاع ثابت */
+  max-height: 500px;
+  overflow-y: scroll;    /* شريط تمرير دائم */
+  border: 1px;
+  padding: 10px;
+  background: #111111;
+  border-radius: 10px;
+  text-align: left;
+  box-sizing: border-box;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  scrollbar-width: thin;
+  scrollbar-color: #333 #111111;
+  position: relative;
 }
 
 #chat::-webkit-scrollbar {
@@ -331,28 +370,30 @@ form {
 }
 
 input {
-    flex: 1;
-    padding: 12px 20px;
-    height: 52px; /* ارتفاع افتراضي لحقل الكتابة (هاتف) */
-    border-radius: 25px;
-    border: 1px solid #333;
-    outline: none;
-    background: #1a1a1a;
-    color: #fff;
-    font-size: 16px;
-    transition: border-color 0.3s ease;
+  flex: 1;
+  padding: 4px 10px;
+  height: 24px;
+  min-height: 20px;
+  max-height: 28px;
+  border-radius: 10px;
+  border: 1px solid #333;
+  outline: none;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 13px;
+  transition: border-color 0.3s ease, height 0.2s;
 }
 
 input:focus {
-    border-color: #0084ff;
+    border-color: #d61919;
 }
 
 button {
     padding: 12px 25px;
     border: none;
     border-radius: 25px;
-    background: #0084ff;
-    color: #fff;
+    background: #010b14;
+    color: #dfec62;
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.3s ease;
@@ -416,25 +457,44 @@ button:hover {
 
 /* شاشات صغيرة (هاتف) - قواعد افتراضية مُناسبة للهواتف */
 @media screen and (max-width: 768px) {
-    body {
-        height: -webkit-fill-available; /* يدعم ارتفاع الشاشة الحقيقي على iOS */
-    }
-    #chat { 
-        height: 400px;
-        max-height: calc(100vh - 180px); /* يترك مساحة للكيبورد */
-    }
-    input { height: 52px; }
-    .message { max-width: 90%; }
+  body {
+    height: -webkit-fill-available;
+  }
+  #chat {
+    min-height: 180px;
+    height: 38vh;
+  max-height: 500px;
+    padding: 10px;
+  }
+  input {
+    height: 24px;
+    min-height: 20px;
+    font-size: 13px;
+    padding: 4px 8px;
+  }
+  .message { max-width: 98%; }
 }
 
 /* شاشات كبيرة (كمبيوتر/تابلت) — مساحة أكبر للشات وحقل كتابة أطول */
 @media screen and (min-width: 769px) {
-  #chat { height: 800px; }
-  input { height: 64px; }
+  #chat {
+    min-height: 400px;
+    height: 650px;
+  max-height: 500px;
+    padding: 22px;
+  }
+  input {
+    height: 28px;
+    min-height: 24px;
+    font-size: 14px;
+    padding: 6px 12px;
+  }
 }
 </style>
 </head>
 <body>
+<h3 style="margin-top:18px; margin-bottom:10px;">المتصلون الآن:</h3>
+<ul id="users"></ul>
 <h2>💬 دردشة مؤقتة</h2>
 <div id="chat"></div>
 <div id="typing"></div>
@@ -442,7 +502,5 @@ button:hover {
   <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
   <button>إرسال</button>
 </form>
-<h3>المتصل الآن:</h3>
-<ul id="users"></ul>
 </body>
 </html>
