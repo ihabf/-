@@ -187,7 +187,12 @@ onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
   const m = snapshot.val();
   const div=document.createElement("div");
-  div.className="message";
+  // أضف الفئة الأساسية للرسالة
+  div.classList.add("message");
+  // إذا كانت الرسالة من المستخدم الحالي، أضف فئة خاصة لمحاذاتها يمينًا
+  if (m.user === username) {
+    div.classList.add("my-message");
+  }
   div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
@@ -285,7 +290,8 @@ onValue(typingRef,snapshot=>{
 <style>
 body {
   font-family: "Cairo", sans-serif;
-  background: #000000;
+  background: url("https://images.pexels.com/photos/33971618/pexels-photo-33971618.jpeg") no-repeat center center fixed;
+  background-size: cover; /* يجعل الصورة تملأ الشاشة بالكامل */
   color: #eee;
   margin: 0;
   padding: 0;
@@ -293,12 +299,11 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  height: 600px;      /* ارتفاع ثابت للصفحة بالكامل */
-  min-height: 600px;
-  max-height: 600px;
-  overflow: hidden;   /* يمنع السكرول */
+  height: 600px;
+  overflow: hidden;
   position: relative;
 }
+
 
 h2 { 
     color: #ffffff;
@@ -317,14 +322,14 @@ h2 {
   overflow-y: scroll;    /* شريط تمرير دائم */
   border: 1px;
   padding: 10px;
-  background: #111111;
+  background: rgba(2, 6, 31, 0.692);
   border-radius: 10px;
   text-align: left;
   box-sizing: border-box;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 6px rgba(16, 5, 136, 0.719);
   scrollbar-width: thin;
-  scrollbar-color: #333 #111111;
-  position: relative;
+  scrollbar-color: #0d083a #11111102;
+  position: sticky;
 }
 
 #chat::-webkit-scrollbar {
@@ -344,10 +349,10 @@ h2 {
     margin-bottom: 12px;
     line-height: 1.5;
     word-wrap: break-word;
-    background: #1a1a1a;
+    background: #1f9bcc15;
     padding: 10px 15px;
     border-radius: 15px;
-    max-width: 80%;
+    max-width: 40%;
     position: relative;
     animation: fadeIn 0.3s ease-out;
 }
@@ -359,13 +364,13 @@ h2 {
 }
 
 form {
-    width: 95%;
+    width: 40%;
     max-width: 800px;
     display: flex;
     gap: 10px;
-    margin: 15px auto;
+     margin-bottom: 50px;
     padding: 10px;
-    background: #111111;
+    background:rgba(11, 4, 85, 0.205);
     border-radius: 15px;
 }
 
@@ -378,22 +383,22 @@ input {
   border-radius: 10px;
   border: 1px solid #333;
   outline: none;
-  background: #1a1a1a;
+  background: rgba(11, 4, 85, 0.205);
   color: #fff;
   font-size: 13px;
   transition: border-color 0.3s ease, height 0.2s;
 }
 
 input:focus {
-    border-color: #d61919;
+    border-color: #2a083d;
 }
 
 button {
     padding: 12px 25px;
     border: none;
     border-radius: 25px;
-    background: #010b14;
-    color: #dfec62;
+    background: rgba(11, 4, 85, 0.205);
+    color: rgba(143, 142, 153, 0.678);
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.3s ease;
@@ -456,18 +461,18 @@ button:hover {
 }
 
 /* شاشات صغيرة (هاتف) - قواعد افتراضية مُناسبة للهواتف */
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 1000px) {
   body {
     height: -webkit-fill-available;
   }
   #chat {
     min-height: 180px;
-    height: 38vh;
+    height: 38px;
   max-height: 500px;
     padding: 10px;
   }
   input {
-    height: 24px;
+    height: 50px;
     min-height: 20px;
     font-size: 13px;
     padding: 4px 8px;
@@ -476,7 +481,7 @@ button:hover {
 }
 
 /* شاشات كبيرة (كمبيوتر/تابلت) — مساحة أكبر للشات وحقل كتابة أطول */
-@media screen and (min-width: 769px) {
+@media screen and (min-width: 500px) {
   #chat {
     min-height: 400px;
     height: 650px;
@@ -484,16 +489,37 @@ button:hover {
     padding: 22px;
   }
   input {
-    height: 28px;
+    height: 24px;
     min-height: 24px;
     font-size: 14px;
     padding: 6px 12px;
+    bottom: 197px;
   }
+  body {
+  transform: scale(1.0);
+  transform-origin: top center;
+}
+
+}
+</style>
+<style>
+/* تنسيق رسائل المستخدم الحالي (تظهر على اليمين) */
+.message.my-message {
+    margin-left: auto; /* يدفع الرسالة إلى أقصى اليمين */
+    margin-right: 0;   /* يزيل الهامش الأيمن الافتراضي */
+    background: rgba(0, 123, 255, 0.3); /* لون خلفية مميز لرسائلك */
+    text-align: right; /* محاذاة النص لليمين داخل الرسالة */
+}
+
+/* تنسيق رسائل المستخدمين الآخرين (تظهر على اليسار) */
+.message {
+    margin-right: auto; /* يدفع الرسالة إلى أقصى اليسار */
+    margin-left: 0;
 }
 </style>
 </head>
 <body>
-<h3 style="margin-top:18px; margin-bottom:10px;">المتصلون الآن:</h3>
+<h5 style="margin-top:20px; margin-bottom:10px;">المتصلون الآن:</h5>
 <ul id="users"></ul>
 <h2>💬 دردشة مؤقتة</h2>
 <div id="chat"></div>
