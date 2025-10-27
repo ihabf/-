@@ -337,10 +337,10 @@ body {
 
 
 h2 { 
-    color: #ffffff;
-    margin: 15px 0;
+    color: #ffffff; /* اللون الأصلي */
+    margin: 0 0 5px 0; /* الحجم الجديد */
     font-size: 1.3em;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2); /* التأثير الأصلي */
 }
 
 /* الشات: افتراضي متجاوب */
@@ -349,10 +349,10 @@ h2 {
   width: 95%;
   max-width: 600px;
   height: 25%;         /* ارتفاع ثابت */
-  max-height: 500px;
+  height: 180px; /* الحجم الجديد */
   overflow-y: scroll;    /* شريط تمرير دائم */
   border: 1px;
-  padding: 10px;
+  padding: 8px; /* الحجم الجديد */
   background: rgba(2, 6, 31, 0.692);
   border-radius: 10px;
   text-align: left;
@@ -382,10 +382,11 @@ h2 {
     word-wrap: break-word;
     background: #1f9bcc15;
     padding: 10px 15px;
-    border-radius: 15px;
+    border-radius: 6px; /* الحجم الجديد */
     max-width: 40%;
     position: relative;
     animation: fadeIn 0.3s ease-out;
+    font-size: 1.1em; /* الحجم الجديد */
 }
 
 .message strong {
@@ -398,9 +399,9 @@ form {
     width: 40%;
     max-width: 800px;
     display: flex;
-    gap: 10px;
-     margin-bottom: 50px;
-    padding: 10px;
+    gap: 8px; /* الحجم الجديد */
+    margin: 6px 0; /* الحجم الجديد */
+    padding: 8px; /* الحجم الجديد */
     background:rgba(11, 4, 85, 0.205);
     border-radius: 15px;
 }
@@ -413,13 +414,14 @@ input {
   border: none;
   font-size: 1em;
   box-sizing: border-box;
-  background-color: #2b2e4a;
-  color: #f9f9f9;
-  flex: 1; /* الحفاظ على التمدد داخل النموذج */
+  background-color: rgba(11, 4, 85, 0.205); /* اللون الأصلي */
+  color: #fff; /* اللون الأصلي */
+  flex: 1;
+  outline: none;
 }
 
 input:focus {
-    border-color: #2a083d; /* يمكنك تعديل هذا اللون أو إزالته إذا لم تعد هناك حدود */
+    border-color: #2a083d; /* التأثير الأصلي */
 }
 
 button {
@@ -438,10 +440,12 @@ button:hover {
 }
 
 #typing {
-    font-size: 14px;
-    color: #999;
-    margin: 5px;
-    min-height: 18px;
+    color: #999; /* اللون الأصلي */
+    margin-top: 5px; /* الحجم الجديد */
+    font-weight: bold; /* الحجم الجديد */
+    font-size: 1.1em; /* الحجم الجديد */
+    height: 24px; /* الحجم الجديد */
+    overflow: hidden; /* الحجم الجديد */
 }
 
 #users {
