@@ -132,16 +132,36 @@ const playJoin = ()=> playClickNoise({volume:1, duration:0.018});
 const playLeave = ()=> playBeep({freq:560, volume:1, duration:0.06});
 
 // 🔹 عرض المستخدمين مع حالة الكتابة
-function renderUsers(users, typingUsers){
+function renderUsers(users, typingUsers) {
   userList.innerHTML = "";
-  Object.entries(users).forEach(([id,u])=>{
+  Object.entries(users).forEach(([id, u]) => {
     const li = document.createElement("li");
-    let typingAnim = "";
-    if(typingUsers[id]){
-      typingAnim = `<span class="dots">…</span>`;
+    let typingAnim = typingUsers[id] ? `<span class="dots">…</span>` : "";
+
+    // 🟣 تحقق إن كان المستخدم هو المسؤول
+    const isAdmin = u.name === "KeltA";
+
+    // 🟡 الصورة الرمزية للمسؤول فقط
+    let avatarHTML = "";
+    if (isAdmin) {
+      avatarHTML = `<img src="https://i.pinimg.com/1200x/21/3d/f8/213df8f9bc8e0189d0b494a9b195e308.jpg" 
+                      class="user-avatar" alt="avatar">`;
     }
-    li.innerHTML = `${u.name} ${typingAnim}`;
+
+    // 🟢 لون الاسم (ذهبي للمسؤول)
+    const nameColor = isAdmin ? "gold" : "#fff";
+    const crown = isAdmin ? " 👑" : "";
+
+    // 🧩 الشكل النهائي للعنصر
+    li.innerHTML = `
+      ${avatarHTML}
+      <span style="color:${nameColor}; font-weight:bold;">
+        ${u.name}${crown}
+      </span> ${typingAnim}
+    `;
+
     li.style.borderRight = `6px solid ${u.color}`;
+    li.classList.add("user-item");
     userList.appendChild(li);
   });
 }
@@ -551,6 +571,20 @@ button:hover {
 .my-message {
   flex-direction: row-reverse; /* للرسائل على اليمين */
 }
+.user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin-left: 6px;
+  border: 2px solid #ffd700;
+  vertical-align: middle;
+}
+
+.user-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
 </style>
 </head>
@@ -566,3 +600,4 @@ button:hover {
 </form>
 </body>
 </html>
+
