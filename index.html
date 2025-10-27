@@ -330,11 +330,21 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  height: 600px;
-  overflow: hidden;
-  position: relative;
+  height: 100vh; /* اجعل الجسم يملأ ارتفاع الشاشة بالكامل */
+  height: 100dvh; /* استخدام dvh هو الأفضل للجوالات لتجنب مشاكل شريط المتصفح */
 }
 
+/* حاوية رئيسية لتنظيم محتوى الشات */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1; /* تجعل الحاوية تملأ المساحة المتبقية */
+  width: 100%;
+  max-width: 900px; /* يمكنك تعديل العرض الأقصى للكمبيوتر */
+  overflow: hidden; /* يمنع المحتوى من الخروج عن الحاوية */
+  padding: 0 5px; /* هامش بسيط على الجوانب */
+  box-sizing: border-box;
+}
 
 h2 { 
     color: #ffffff; /* اللون الأصلي */
@@ -347,9 +357,7 @@ h2 {
 /* الشات: حجم ثابت لا يتمدد مع الكتابة */
 #chat {
   width: 95%;
-  max-width: 600px;
-  height: 25%;         /* ارتفاع ثابت */
-  height: 180px; /* الحجم الجديد */
+  flex-grow: 1; /* أهم خاصية: تجعل الشات يملأ كل المساحة العمودية المتاحة */
   overflow-y: scroll;    /* شريط تمرير دائم */
   border: 1px;
   padding: 8px; /* الحجم الجديد */
@@ -360,7 +368,6 @@ h2 {
   box-shadow: 0 4px 6px rgba(16, 5, 136, 0.719);
   scrollbar-width: thin;
   scrollbar-color: #0d083a #11111102;
-  position: sticky;
 }
 
 #chat::-webkit-scrollbar {
@@ -396,14 +403,13 @@ h2 {
 }
 
 form {
-    width: 40%;
-    max-width: 800px;
+    width: 100%; /* يأخذ عرض الحاوية بالكامل */
     display: flex;
     gap: 8px; /* الحجم الجديد */
     margin: 6px 0; /* الحجم الجديد */
     padding: 8px; /* الحجم الجديد */
     background:rgba(11, 4, 85, 0.205);
-    border-radius: 15px;
+    box-sizing: border-box; /* لضمان أن الحشو لا يزيد العرض */
 }
 
 input {
@@ -493,46 +499,21 @@ button:hover {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* شاشات صغيرة (هاتف) - قواعد افتراضية مُناسبة للهواتف */
-@media screen and (max-width: 1000px) {
-  body {
-    height: -webkit-fill-available;
-  }
+/* شاشات كبيرة (كمبيوتر) - تعديلات بسيطة */
+@media screen and (min-width: 769px) {
   #chat {
-    min-height: 180px;
-    height: 38px;
-  max-height: 500px;
-    padding: 10px;
+    border-radius: 10px; /* الحفاظ على الحواف الدائرية */
   }
-  input {
-    height: 50px;
-    min-height: 20px;
-    font-size: 13px;
-    padding: 4px 8px;
-  }
-  .message { max-width: 98%; }
 }
 
-/* شاشات كبيرة (كمبيوتر/تابلت) — مساحة أكبر للشات وحقل كتابة أطول */
-@media screen and (min-width: 500px) {
-  #chat {
-    min-height: 400px;
-    height: 650px;
-  max-height: 500px;
-    padding: 22px;
-  }
-  input {
-    height: 24px;
-    min-height: 24px;
-    font-size: 14px;
-    padding: 6px 12px;
-    bottom: 197px;
-  }
-  body {
-  transform: scale(1.0);
-  transform-origin: top center;
-}
-
+/* شاشات صغيرة (هاتف) - التصميم الأساسي الآن مرن ولا يحتاج تعديلات كثيرة */
+@media screen and (max-width: 768px) {
+    .chat-container {
+        padding: 0; /* إزالة الهوامش الجانبية ليملأ الشاشة */
+    }
+    #chat, form {
+        border-radius: 0; /* إزالة الحواف الدائرية ليمتد لأطراف الشاشة */
+    }
 }
 </style>
 <style>
@@ -583,12 +564,15 @@ button:hover {
 <body>
 <h5 style="margin-top:20px; margin-bottom:10px;">المتصلون الآن:</h5>
 <ul id="users"></ul>
-<h2>💬 دردشة مؤقتة</h2>
-<div id="chat"></div>
-<div id="typing"></div>
-<form id="chatForm">
-  <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
-  <button>إرسال</button>
-</form>
+<!-- تم وضع عناصر الشات داخل حاوية جديدة لتنظيمها -->
+<div class="chat-container">
+  <h2>💬 دردشة مؤقتة</h2>
+  <div id="chat"></div>
+  <div id="typing"></div>
+  <form id="chatForm">
+    <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
+    <button>إرسال</button>
+  </form>
+</div>
 </body>
 </html>
