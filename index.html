@@ -186,17 +186,33 @@ let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
   const m = snapshot.val();
-  const div=document.createElement("div");
-  // أضف الفئة الأساسية للرسالة
-  div.classList.add("message");
+
+  // إنشاء الحاوية
+  const msgContainer = document.createElement("div");
+  msgContainer.classList.add("message");
+
   // إذا كانت الرسالة من المستخدم الحالي، أضف فئة خاصة لمحاذاتها يمينًا
   if (m.user === username) {
-    div.classList.add("my-message");
+    msgContainer.classList.add("my-message");
   }
-  div.innerHTML=`<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
-  chatBox.appendChild(div);
+
+  // 🔹 إضافة صورة رمزية لمستخدم واحد محدد (مثلاً المدير)
+  if (m.user === "KeltA") { // ← غيّر الاسم كما تريد
+    const avatar = document.createElement("img");
+    avatar.src = "https://i.pinimg.com/1200x/21/3d/f8/213df8f9bc8e0189d0b494a9b195e308.jpg"; // ضع رابط الصورة الرمزية هنا
+    avatar.classList.add("avatar");
+    msgContainer.appendChild(avatar);
+  }
+
+  // محتوى الرسالة
+  const textDiv = document.createElement("div");
+  textDiv.innerHTML = `<strong style="color:${m.color}">${m.user}:</strong> ${m.text}`;
+  msgContainer.appendChild(textDiv);
+
+  chatBox.appendChild(msgContainer);
   chatBox.scrollTop = chatBox.scrollHeight;
 });
+
 get(messagesRef).then(()=>{ firstLoad=false; });
 
 // 🔹 تحديث فوري عند حذف الرسائل
@@ -516,6 +532,26 @@ button:hover {
     margin-right: auto; /* يدفع الرسالة إلى أقصى اليسار */
     margin-left: 0;
 }
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  border: 2px solid #0ecc3ec2;
+}
+
+/* جعل الفقاعة والصورة بجانب بعض */
+.message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-message {
+  flex-direction: row-reverse; /* للرسائل على اليمين */
+}
+
 </style>
 </head>
 <body>
