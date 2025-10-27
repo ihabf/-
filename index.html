@@ -327,7 +327,7 @@ onValue(typingRef,snapshot=>{
 body {
   font-family: "Cairo", sans-serif;
   background: url("https://images.pexels.com/photos/33971618/pexels-photo-33971618.jpeg") no-repeat center center fixed;
-  background-size: cover; /* يجعل الصورة تملأ الشاشة بالكامل */
+  background-size: cover;
   color: #eee;
   margin: 0;
   padding: 0;
@@ -335,37 +335,34 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  height: 100vh; /* اجعل الجسم يملأ ارتفاع الشاشة بالكامل */
-  height: 100dvh; /* استخدام dvh هو الأفضل للجوالات لتجنب مشاكل شريط المتصفح */
+  height: 100vh;
+  height: 100dvh;
 }
 
-/* حاوية رئيسية لتنظيم محتوى الشات */
 .chat-container {
   display: flex;
   flex-direction: column;
-  flex-grow: 1; /* تجعل الحاوية تملأ المساحة المتبقية */
+  flex-grow: 1;
   width: 100%;
-  max-width: 900px; /* يمكنك تعديل العرض الأقصى للكمبيوتر */
-  overflow: hidden; /* يمنع المحتوى من الخروج عن الحاوية */
-  padding: 0 5px; /* هامش بسيط على الجوانب */
+  max-width: 900px;
+  overflow: hidden;
+  padding: 0 5px;
   box-sizing: border-box;
 }
 
 h2 { 
-    color: #ffffff; /* اللون الأصلي */
-    margin: 0 0 5px 0; /* الحجم الجديد */
+    color: #ffffff;
+    margin: 0 0 5px 0;
     font-size: 1.3em;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2); /* التأثير الأصلي */
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* الشات: افتراضي متجاوب */
-/* الشات: حجم ثابت لا يتمدد مع الكتابة */
 #chat {
   width: 95%;
-  flex-grow: 1; /* أهم خاصية: تجعل الشات يملأ كل المساحة العمودية المتاحة */
-  overflow-y: scroll;    /* شريط تمرير دائم */
+  flex-grow: 1;
+  overflow-y: scroll;
   border: 1px;
-  padding: 8px; /* الحجم الجديد */
+  padding: 8px;
   background: rgba(2, 6, 31, 0.692);
   border-radius: 10px;
   text-align: left;
@@ -394,11 +391,14 @@ h2 {
     word-wrap: break-word;
     background: #1f9bcc15;
     padding: 1px 1px;
-    border-radius: 10px; /* الحجم الجديد */
+    border-radius: 10px;
     max-width: 100%;
     position: relative;
     animation: fadeIn 0.3s ease-out;
-    font-size: 15px; /* الحجم الجديد */
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .message strong {
@@ -408,13 +408,13 @@ h2 {
 }
 
 form {
-    width: 100%; /* يأخذ عرض الحاوية بالكامل */
+    width: 100%;
     display: flex;
-    gap: 8px; /* الحجم الجديد */
-    margin: 6px 0; /* الحجم الجديد */
-    padding: 8px; /* الحجم الجديد */
+    gap: 8px;
+    margin: 6px 0;
+    padding: 8px;
     background:rgba(11, 4, 85, 0.205);
-    box-sizing: border-box; /* لضمان أن الحشو لا يزيد العرض */
+    box-sizing: border-box;
 }
 
 input {
@@ -425,14 +425,14 @@ input {
   border: none;
   font-size: 1em;
   box-sizing: border-box;
-  background-color: rgba(11, 4, 85, 0.205); /* اللون الأصلي */
-  color: #fff; /* اللون الأصلي */
+  background-color: rgba(11, 4, 85, 0.205);
+  color: #fff;
   flex: 1;
   outline: none;
 }
 
 input:focus {
-    border-color: #2a083d; /* التأثير الأصلي */
+    border-color: #2a083d;
 }
 
 button {
@@ -451,12 +451,12 @@ button:hover {
 }
 
 #typing {
-    color: #999; /* اللون الأصلي */
-    margin-top: 5px; /* الحجم الجديد */
-    font-weight: bold; /* الحجم الجديد */
-    font-size: 1.1em; /* الحجم الجديد */
-    height: 24px; /* الحجم الجديد */
-    overflow: hidden; /* الحجم الجديد */
+    color: #999;
+    margin-top: 5px;
+    font-weight: bold;
+    font-size: 1.1em;
+    height: 24px;
+    overflow: hidden;
 }
 
 #users {
@@ -465,21 +465,21 @@ button:hover {
     margin: 15px 0;
     width: 95%;
     max-width: 900px;
-    display: flex;              /* عرض العناصر بشكل أفقي */
-    flex-wrap: wrap;           /* التفاف عند ضيق المساحة */
-    gap: 10px;                 /* مسافة بين الأوسمة */
-    justify-content: center;   /* تمركز الأوسمة أفقياً */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
     align-items: center;
 }
 
 #users li {
     background: #1a1a1a;
-    margin: 0;                 /* مسافة تدار عبر gap */
-    padding: 8px 14px;         /* اضبط حشو أصغر لملاءمة أفقية */
-    border-radius: 20px;       /* شكل شبيه بالأوسمة */
-    text-align: center;        /* نص مركزي داخل الوسم */
+    margin: 0;
+    padding: 8px 14px;
+    border-radius: 20px;
+    text-align: center;
     font-weight: 500;
-    display: inline-flex;      /* عرض أفقي لكل عنصر */
+    display: inline-flex;
     align-items: center;
     transition: transform 0.15s ease, background 0.15s ease;
 }
@@ -504,46 +504,50 @@ button:hover {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* شاشات كبيرة (كمبيوتر) - تعديلات بسيطة */
 @media screen and (min-width: 769px) {
   #chat {
-    border-radius: 10px; /* الحفاظ على الحواف الدائرية */
+    border-radius: 10px;
   }
 }
 
-/* شاشات صغيرة (هاتف) */
 @media screen and (max-width: 768px) {
     #chat {
-  height: 180px;
-  width: 50%;
-  overflow-y: auto;
-  font-size:6px;
-  color: #ffffff;
-  margin-bottom: 5px;
-  direction: rtl;
-}
+        height: 180px;
+        width: 50%;
+        overflow-y: auto;
+        font-size:6px;
+        color: #ffffff;
+        margin-bottom: 5px;
+        direction: rtl;
+        word-break: break-word; /* التفاف النص */
+        white-space: pre-wrap;  /* يسمح بانتقال النص لسطر جديد */
+    }
+
+    .message {
+        word-break: break-word;
+        white-space: pre-wrap;
+    }
 
     form {
-        width: 95%;        /* عرض حقل الإدخال */
-        max-width: 500px;  /* الحد الأقصى للعرض */
-        margin: 10px auto; /* تمركز أسفل الشات */
+        width: 95%;
+        max-width: 500px;
+        margin: 10px auto;
     }
 }
 
-
-/* تنسيق رسائل المستخدم الحالي (تظهر على اليمين) */
 .message.my-message {
-    margin-left: auto; /* يدفع الرسالة إلى أقصى اليمين */
-    margin-right: 0;   /* يزيل الهامش الأيمن الافتراضي */
-    background: rgba(0, 123, 255, 0.3); /* لون خلفية مميز لرسائلك */
-    text-align: right; /* محاذاة النص لليمين داخل الرسالة */
+    margin-left: auto;
+    margin-right: 0;
+    background: rgba(0, 123, 255, 0.3);
+    text-align: right;
+    flex-direction: row-reverse;
 }
 
-/* تنسيق رسائل المستخدمين الآخرين (تظهر على اليسار) */
 .message {
-    margin-right: auto; /* يدفع الرسالة إلى أقصى اليسار */
+    margin-right: auto;
     margin-left: 0;
 }
+
 .avatar {
   width: 32px;
   height: 32px;
@@ -553,27 +557,16 @@ button:hover {
   border: 2px solid #0ecc3ec2;
 }
 
-/* جعل الفقاعة والصورة بجانب بعض */
-.message {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.my-message {
-  flex-direction: row-reverse; /* للرسائل على اليمين */
-}
 .username {
   font-weight: bold;
   text-shadow: 0 0 5px rgba(255, 255, 255, 0);
 }
 
-/* المسؤول يظهر بتوهج بنفسجي */
 .username[style*="gold"] {
   text-shadow: 0 0 10px rgb(230, 214, 3);
 }
-
 </style>
+
 </head>
 <body>
 <h5 style="margin-top:20px; margin-bottom:10px;">المتصلون الآن:</h5>
@@ -590,3 +583,4 @@ button:hover {
 </div>
 </body>
 </html>
+
