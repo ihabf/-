@@ -321,6 +321,32 @@ onValue(typingRef,snapshot=>{
     .map(([id,u])=>u.name);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
+// 🔹 تمييز نوع الجهاز
+const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// 🔹 عند تحميل الصفحة نغيّر تصميم الشات
+window.addEventListener("DOMContentLoaded", () => {
+  const chatBox = document.getElementById("chat");
+
+  if (!chatBox) return; // تأكد أن العنصر موجود
+
+  if (isMobile) {
+    console.log("📱 المستخدم من الجوال");
+    chatBox.style.width = "95%";
+    chatBox.style.height = "60vh";
+    chatBox.style.maxWidth = "none";
+  } else {
+    console.log("💻 المستخدم من الكمبيوتر");
+    chatBox.style.width = "600px";
+    chatBox.style.height = "400px";
+  }
+
+  // يمكنك أيضًا تعديل حجم الخط أو الفقاعات إن أردت:
+  const messages = document.querySelectorAll(".message");
+  messages.forEach(msg => {
+    msg.style.fontSize = isMobile ? "15px" : "17px";
+  });
+});
 </script>
 
 <style>
@@ -600,4 +626,5 @@ button:hover {
 </form>
 </body>
 </html>
+
 
