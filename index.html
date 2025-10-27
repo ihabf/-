@@ -514,14 +514,13 @@ button:hover {
 /* شاشات صغيرة (هاتف) */
 @media screen and (max-width: 768px) {
     #chat {
-        width: 95%;      /* عرض الشات */
-        height: 40vh;    /* ارتفاع الشات: 60% من ارتفاع الشاشة */
-        max-width: 100px; /* الحد الأقصى للعرض إذا أحببت */
-        border-radius: 10px; /* يمكنك ترك الحواف دائرية */
-        padding: 10px;
-        margin: 0 auto; /* تمركز الشات أفقياً */
-        overflow-y: scroll; /* ظهور شريط التمرير عند الحاجة */
-    }
+  height: 180px;
+  overflow-y: auto;
+  font-size: 1.1em;
+  color: #ffffff;
+  margin-bottom: 5px;
+  direction: rtl;
+}
 
     form {
         width: 95%;        /* عرض حقل الإدخال */
