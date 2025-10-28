@@ -7,7 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update, serverTimestamp, transaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -28,6 +28,7 @@ const usersRef = ref(db, "users");
 const messagesRef = ref(db, "messages");
 const typingRef = ref(db, "typing");
 const gameRef = ref(db, "game_state"); // 🏁 عقدة جديدة لحالة اللعبة
+const locksRef = ref(db, "locks"); // 🔒 عقدة جديدة لمنع تكرار ردود البوت
 const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA";
@@ -233,39 +234,49 @@ function sendBotMessage(text) {
 
 // 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 let firstLoad = true;
-onChildAdded(messagesRef, snapshot=>{
+onChildAdded(messagesRef, async (snapshot) => {
   if(firstLoad) return; // تجاهل الرسائل القديمة عند التحميل الأولي
   const m = snapshot.val();
+  const messageId = snapshot.key; // معرف فريد لكل رسالة
 
   // 🤖 الرد على التحية
   if (m.userId !== "bot_id" && m.text.trim() === "السلام عليكم") {
-    // تأخير بسيط لجعل الرد يبدو طبيعيًا
-    setTimeout(() => {
-        sendBotMessage(`وعليكم السلام يا ${m.user} منوووووووووووووووووووووووووووووووووووور 🥳🎉👋`);
-    }, 500);
+      const lockPath = `greeting_reply/${messageId}`;
+      const greetingLockRef = ref(db, lockPath);
+      // استخدام transaction لضمان أن عميل واحد فقط يرسل الرد
+      transaction(greetingLockRef, (currentData) => {
+          if (currentData === null) { // إذا لم يتم وضع قفل لهذه الرسالة بعد
+              return true; // ضع القفل
+          }
+          // إذا كان القفل موجودًا، قم بالإلغاء لمنع الكتابة
+          return; 
+      }).then((result) => {
+          if (result.committed) { // إذا نجح هذا العميل في وضع القفل
+              setTimeout(() => {
+                  sendBotMessage(`وعليكم السلام يا ${m.user} منوووووووووووووووووووووووووووووووووووور 🥳🎉👋`);
+              }, 500); // تأخير بسيط لجعل الرد يبدو طبيعيًا
+          }
+      });
   }
 
   // 🏁 التحقق من الفائز في لعبة سرعة الكتابة
   // يتم التحقق فقط إذا كانت اللعبة قيد التقدم، الرسالة ليست من البوت، النص يطابق كلمات اللعبة، ووقت الرسالة بعد بدء اللعبة.
   if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp > localGameState.gameStartTime) {
-    const endTime = m.timestamp; // استخدام الطابع الزمني للرسالة الفائزة
-    const timeDiffSeconds = (endTime - localGameState.gameStartTime) / 1000;
-    const totalChars = localGameState.gameWords.join(" ").length;
-    const wpm = Math.round((totalChars / 5) / (timeDiffSeconds / 60)); // حساب WPM
-
-    // إعلان الفائز عبر البوت
-    sendBotMessage(`🏆 الفائز هو ${m.user} بسرعة ${wpm} كلمة في الدقيقة!`);
-    
-    // إنهاء اللعبة في Firebase
-    set(gameRef, {
-        inProgress: false,
-        countdownActive: false,
-        countdownInitiatorId: null,
-        gameWords: [],
-        gameStartTime: 0,
-        lastGameId: null // إعادة تعيين معرف اللعبة
+    // استخدام transaction لضمان أن عميل واحد فقط يعلن الفائز وينهي اللعبة
+    transaction(gameRef, (currentGameState) => {
+        if (currentGameState && currentGameState.inProgress) { // تحقق مرة أخرى أن اللعبة لا تزال جارية
+            return { ...currentGameState, inProgress: false }; // إنهاء اللعبة
+        }
+        return; // إذا انتهت اللعبة بالفعل، قم بالإلغاء
+    }).then((result) => {
+        if (result.committed) { // إذا نجح هذا العميل في إنهاء اللعبة
+            const endTime = m.timestamp;
+            const timeDiffSeconds = (endTime - localGameState.gameStartTime) / 1000;
+            const totalChars = localGameState.gameWords.join(" ").length;
+            const wpm = Math.round((totalChars / 5) / (timeDiffSeconds / 60));
+            sendBotMessage(`🏆 الفائز هو ${m.user} بسرعة ${wpm} كلمة في الدقيقة!`);
+        }
     });
-    // لا نستخدم `return` هنا للسماح بعرض رسالة الفوز بشكل طبيعي.
   }
 
   // 🔽 الكود التالي لعرض الرسائل العادية في الشات
