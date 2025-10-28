@@ -340,14 +340,13 @@ body {
 }
 
 .chat-container {
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-  width: 100%;
+  position: absolute;   /* لتحديد الموضع بشكل حر */
+  left: 50%;            /* المنتصف أفقيًا */
+  transform: translateX(-50%);  /* لتوسيطه فعليًا */
+  width: 95%;
   max-width: 900px;
-  overflow: hidden;
-  padding: 0 5px;
-  box-sizing: border-box;
+  bottom:auto;
+  top: 20%;
 }
 
 h2 { 
@@ -359,18 +358,17 @@ h2 {
 
 #chat {
   width: 95%;
-  flex-grow: 1;
-  overflow-y: scroll;
-  border: 1px;
+  height: 400px; /* 🔹 ارتفاع ثابت يمكنك تغييره حسب رغبتك */
+  overflow-y: auto; /* يسمح بالتمرير عند امتلاء الشات */
   padding: 8px;
   background: rgba(2, 6, 31, 0.692);
   border-radius: 10px;
   text-align: left;
   box-sizing: border-box;
-  /* box-shadow: 0 4px 6px rgba(16, 5, 136, 0.719); */ /* تم إزالة الظل */
   scrollbar-width: thin;
   scrollbar-color: #0d083a #11111102;
 }
+
 
 #chat::-webkit-scrollbar {
     width: 6px;
@@ -513,16 +511,26 @@ button:hover {
 }
 
 @media screen and (max-width: 768px) {
+    .chat-container {
+    position: absolute;   /* لتحديد الموضع بشكل حر */
+  left: 50%;            /* المنتصف أفقيًا */
+  transform: translateX(-50%);  /* لتوسيطه فعليًا */
+  width: 95%;
+  max-width: 900px;
+  bottom: 10;
+  top: 20%;
+  }
     #chat {
-        height: 100px;
-        width: 100%;
-        overflow-y: auto;
-        font-size:6px;
-        color: #ffffff;
-        margin-bottom: 5px;
-        direction: rtl;
-        word-break: break-word;
-        white-space: pre-wrap;
+        width: 95%;
+  height: 400px; /* 🔹 ارتفاع ثابت يمكنك تغييره حسب رغبتك */
+  overflow-y: auto; /* يسمح بالتمرير عند امتلاء الشات */
+  padding: 8px;
+  background: rgba(2, 6, 31, 0.692);
+  border-radius: 10px;
+  text-align: left;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #0d083a #11111102;
     }
 
     .message {
@@ -586,7 +594,6 @@ button:hover {
 </div>
 </body>
 </html>
-
 
 
 
