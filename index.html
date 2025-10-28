@@ -265,7 +265,7 @@ async function main() {
                     console.log(result.data.message);
                 } catch (error) {
                     console.error("Error kicking user:", error);
-                    alert(`فشل الطرد: ${error.message}`);
+                    alert(`فشل الطرد: ${error.details || error.message}`);
                 }
             }
         }
@@ -281,7 +281,7 @@ async function main() {
                     console.log(result.data.message);
                 } catch (error) {
                     console.error("Error banning user:", error);
-                    alert(`فشل الحظر: ${error.message}`);
+                    alert(`فشل الحظر: ${error.details || error.message}`);
                 }
             }
         }
@@ -321,7 +321,7 @@ async function main() {
                         console.log(result.data.message);
                     } catch (error) {
                         console.error("Error unbanning IP:", error);
-                        alert(`فشل إلغاء الحظر: ${error.message}`);
+                        alert(`فشل إلغاء الحظر: ${error.details || error.message}`);
                     }
                 }
             }
