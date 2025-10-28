@@ -269,7 +269,7 @@ onChildAdded(messagesRef, snapshot=>{
         await new Promise(resolve => setTimeout(resolve, 1000));
         sendBotMessage("1...");
         await new Promise(resolve => setTimeout(resolve, 1000));
-        sendBotMessage(`📝 اكتب: ${gameWords.join(" ")}`);
+        sendBotMessage(` ${gameWords.join(" ")}`);
         gameStartTime = Date.now(); // تسجيل وقت بدء التحدي
       };
       startCountdown();
