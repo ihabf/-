@@ -335,7 +335,6 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  height: 100vh;
   height: 100dvh;
 }
 
@@ -360,85 +359,99 @@ h2 {
   height: 400px;
   overflow-y: auto;
   padding: 8px;
-  background: rgba(2, 6, 31, 0.692);
+  background: rgba(2, 6, 31, 0.7);
   border-radius: 10px;
   text-align: left;
   box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: #0d083a #11111102;
-  margin-bottom: 0; /* 🔹 إزالة المسافة بين الشات وحقل الإدخال */
+  margin-bottom: 0;
 }
 
-#chat::-webkit-scrollbar {
-  width: 6px;
-}
-
-#chat::-webkit-scrollbar-track {
-  background: #111111;
-}
-
+#chat::-webkit-scrollbar { width: 6px; }
+#chat::-webkit-scrollbar-track { background: #111111; }
 #chat::-webkit-scrollbar-thumb {
   background-color: #333;
   border-radius: 3px;
 }
 
 .message {
-  margin-bottom: 12px;
-  line-height: 1;
-  word-wrap: break-word;
-  background: #1f9bcc15;
-  padding: 10px 10px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  background: rgba(31, 155, 204, 0.1);
   border-radius: 10px;
-  max-width: 80%;
-  position: relative;
-  animation: fadeIn 0.3s ease-out;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  max-width: 70%;
+  line-height: 1.4;
+  word-break: break-word;
+  white-space: pre-wrap;
   box-shadow: none;
+  font-size: 14px;
+  animation: fadeIn 0.3s ease-out;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .message strong {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  font-size: 0.85em;
+  color: #bcd;
+}
+
+.message.my-message {
+  margin-left: auto;
+  margin-right: 0;
+  background: rgba(0, 123, 255, 0.25);
+  text-align: right;
+  flex-direction: row-reverse;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #0ecc3ec2;
+  flex-shrink: 0;
+}
+
+.username {
+  font-weight: bold;
   font-size: 0.9em;
+}
+
+.username[style*="gold"] {
+  text-shadow: 0 0 10px rgb(230, 214, 3);
 }
 
 form {
   width: 100%;
   display: flex;
   gap: 0px;
-  margin-top: 0; /* 🔹 جعل النموذج ملاصقًا للشات */
+  margin-top: 0;
   padding: 8px;
-  background: rgba(11, 4, 85, 0.205);
+  background: rgba(11, 4, 85, 0.2);
   box-sizing: border-box;
 }
 
 input {
-  width: 100%;
+  flex: 1;
   padding: 8px;
-  margin: 1px 0;
   border-radius: 6px;
   border: none;
   font-size: 1em;
   box-sizing: border-box;
-  background-color: rgba(11, 4, 85, 0.205);
+  background-color: rgba(11, 4, 85, 0.25);
   color: #fff;
-  flex: 1;
   outline: none;
 }
 
-input:focus {
-  border-color: #2a083d;
-}
-
 button {
-  padding: 12px 25px;
+  padding: 10px 20px;
   border: none;
   border-radius: 25px;
-  background: rgba(11, 4, 85, 0.205);
-  color: rgba(143, 142, 153, 0.678);
+  background: rgba(11, 4, 85, 0.25);
+  color: rgba(143, 142, 153, 0.8);
   font-weight: bold;
   cursor: pointer;
   transition: background-color 0.3s ease;
@@ -452,7 +465,7 @@ button:hover {
   color: #999;
   margin-top: 5px;
   font-weight: bold;
-  font-size: 1.1em;
+  font-size: 1em;
   height: 24px;
   overflow: hidden;
 }
@@ -472,29 +485,16 @@ button:hover {
 
 #users li {
   background: #1a1a1a;
-  margin: 0;
   padding: 8px 14px;
   border-radius: 20px;
   text-align: center;
   font-weight: 500;
-  display: inline-flex;
-  align-items: center;
   transition: transform 0.15s ease, background 0.15s ease;
 }
 
 #users li:hover {
   transform: translateY(-3px);
-  background: #222222;
-}
-
-.dots {
-  display: inline-block;
-  animation: blink 1s infinite;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
+  background: #222;
 }
 
 @keyframes fadeIn {
@@ -502,79 +502,46 @@ button:hover {
   to { opacity: 1; transform: translateY(0); }
 }
 
-@media screen and (min-width: 769px) {
-  #chat {
-    border-radius: 10px;
-  }
-}
-
 @media screen and (max-width: 768px) {
   .chat-container {
-    position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 180px;
     width: 95%;
-    max-width: 900px;
-    top: 200px;
   }
 
   #chat {
-    width: 95%;
-    height: 200px;
-    overflow-y: auto;
-    padding: 8px;
-    background: rgba(2, 6, 31, 0.692);
-    border-radius: 10px;
-    text-align: left;
-    box-sizing: border-box;
-    scrollbar-width: thin;
-    scrollbar-color: #0d083a #11111102;
-    margin-bottom: 0; /* 🔹 لا مسافة أسفل الشات */
+    height: 250px;
+    padding: 6px;
   }
 
   .message {
-    word-break: break-word;
-    white-space: pre-wrap;
+    font-size: 13px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    max-width: 80%;
+  }
+
+  .avatar {
+    width: 24px;
+    height: 24px;
   }
 
   form {
     width: 95%;
-    max-width: 500px;
-    margin: 0 auto; /* 🔹 بدون مسافة بين الشات وحقل الكتابة */
+    padding: 6px;
+  }
+
+  input {
+    font-size: 0.9em;
+    padding: 6px;
+  }
+
+  button {
+    padding: 8px 16px;
+    font-size: 0.9em;
   }
 }
-
-.message.my-message {
-  margin-left: auto;
-  margin-right: 0;
-  background: rgba(0, 123, 255, 0.3);
-  text-align: right;
-  flex-direction: row-reverse;
-}
-
-.message {
-  margin-right: auto;
-  margin-left: 0;
-}
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  margin-right: 8px;
-  vertical-align: middle;
-  border: 2px solid #0ecc3ec2;
-}
-
-.username {
-  font-weight: bold;
-  text-shadow: 0 0 5px rgba(255, 255, 255, 0);
-}
-
-.username[style*="gold"] {
-  text-shadow: 0 0 10px rgb(230, 214, 3);
-}
 </style>
+
 
 
 </head>
@@ -593,6 +560,5 @@ button:hover {
 </div>
 </body>
 </html>
-
 
 
