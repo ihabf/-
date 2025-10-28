@@ -345,8 +345,7 @@ body {
   transform: translateX(-50%);  /* لتوسيطه فعليًا */
   width: 95%;
   max-width: 900px;
-  bottom:auto;
-  top: 20%;
+  top: 120px;
 }
 
 h2 { 
@@ -512,17 +511,16 @@ button:hover {
 
 @media screen and (max-width: 768px) {
     .chat-container {
-    position: absolute;   /* لتحديد الموضع بشكل حر */
+    position: fixed;   /* لتحديد الموضع بشكل حر */
   left: 50%;            /* المنتصف أفقيًا */
   transform: translateX(-50%);  /* لتوسيطه فعليًا */
   width: 95%;
   max-width: 900px;
-  bottom: 10;
-  top: 20%;
+  top: 200px;
   }
     #chat {
         width: 95%;
-  height: 400px; /* 🔹 ارتفاع ثابت يمكنك تغييره حسب رغبتك */
+  height: 200px; /* 🔹 ارتفاع ثابت يمكنك تغييره حسب رغبتك */
   overflow-y: auto; /* يسمح بالتمرير عند امتلاء الشات */
   padding: 8px;
   background: rgba(2, 6, 31, 0.692);
