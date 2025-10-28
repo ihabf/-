@@ -10,6 +10,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-functions.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -27,6 +28,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const functions = getFunctions(app);
 
 const usersRef = ref(db, "users");
 const messagesRef = ref(db, "messages");
@@ -240,6 +242,86 @@ async function main() {
         li.style.borderRight = `6px solid ${u.color}`;
         userList.appendChild(li);
       });
+    }
+
+    // 🚫 استدعاء وظائف Cloud Functions
+    const kickUserFn = httpsCallable(functions, 'kickUser');
+    const banUserFn = httpsCallable(functions, 'banUser');
+    const unbanIpFn = httpsCallable(functions, 'unbanIp');
+
+    // 🚫 معالجة أحداث الضغط على أزرار التحكم
+    userList.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('kick-btn')) {
+            const targetUserId = e.target.dataset.userid;
+            const targetUsername = e.target.dataset.username;
+            if (confirm(`هل أنت متأكد من أنك تريد طرد ${targetUsername}؟`)) {
+                try {
+                    // إضافة callerUsername للتحقق من الصلاحيات في الخادم
+                    const result = await kickUserFn({ targetUserId, targetUsername, callerUsername: username });
+                    console.log(result.data.message);
+                } catch (error) {
+                    console.error("Error kicking user:", error);
+                    alert(`فشل الطرد: ${error.message}`);
+                }
+            }
+        }
+
+        if (e.target.classList.contains('ban-btn')) {
+            const targetUserId = e.target.dataset.userid;
+            const targetUsername = e.target.dataset.username;
+            const targetIp = e.target.dataset.ip;
+            if (confirm(`هل أنت متأكد من أنك تريد حظر IP المستخدم ${targetUsername} (${targetIp}) وطرده؟`)) {
+                try {
+                    // إضافة callerUsername للتحقق من الصلاحيات في الخادم
+                    const result = await banUserFn({ targetUserId, targetUsername, callerUsername: username });
+                    console.log(result.data.message);
+                } catch (error) {
+                    console.error("Error banning user:", error);
+                    alert(`فشل الحظر: ${error.message}`);
+                }
+            }
+        }
+    });
+
+    // 🚫 عرض وإدارة لوحة الحظر للمشرف
+    if (username === ADMIN_NAME) {
+        const banManagementDiv = document.getElementById('ban-management');
+        const bannedIpsList = document.getElementById('banned-ips-list');
+        banManagementDiv.classList.add('visible');
+
+        onValue(bannedIPsRef, (snapshot) => {
+            bannedIpsList.innerHTML = '';
+            const banned = snapshot.val() || {};
+            if (Object.keys(banned).length === 0) {
+                bannedIpsList.innerHTML = '<li>لا توجد عناوين IP محظورة حاليًا.</li>';
+            }
+            for (const [ipHash, data] of Object.entries(banned)) {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span>
+                        ${data.originalIpSnippet || 'N/A'} (محظور بواسطة: ${data.bannedBy} في ${new Date(data.timestamp).toLocaleString()})
+                    </span>
+                    <button class="unban-btn" data-iphash="${ipHash}">إلغاء الحظر</button>
+                `;
+                bannedIpsList.appendChild(li);
+            }
+        });
+
+        bannedIpsList.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('unban-btn')) {
+                const ipHash = e.target.dataset.iphash;
+                if (confirm('هل أنت متأكد من إلغاء هذا الحظر؟')) {
+                    try {
+                        // إضافة callerUsername للتحقق من الصلاحيات في الخادم
+                        const result = await unbanIpFn({ ipHash, callerUsername: username });
+                        console.log(result.data.message);
+                    } catch (error) {
+                        console.error("Error unbanning IP:", error);
+                        alert(`فشل إلغاء الحظر: ${error.message}`);
+                    }
+                }
+            }
+        });
     }
 
     // 🔹 استقبال المستخدمين والكتابة الحية
