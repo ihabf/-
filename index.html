@@ -7,7 +7,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update, serverTimestamp, transaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update, transaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -228,7 +228,7 @@ function sendBotMessage(text) {
     userId: "bot_id", // معرف خاص بالبوت
     text: text,
     time: new Date().toLocaleTimeString(), // للعرض
-    timestamp: Date.now() // للطوابع الزمنية الدقيقة (لعبة السرعة)
+    timestamp: Date.now() // ✨ تصحيح: استدعاء الدالة للحصول على القيمة الرقمية
   });
 }
 
@@ -239,7 +239,7 @@ onChildAdded(messagesRef, async (snapshot) => {
   const m = snapshot.val();
   const messageId = snapshot.key; // معرف فريد لكل رسالة
 
-  // 🤖 الرد على التحية
+  // 🤖 الرد على التحية (مع منع التكرار)
   if (m.userId !== "bot_id" && m.text.trim() === "السلام عليكم") {
       const lockPath = `greeting_reply/${messageId}`;
       const greetingLockRef = ref(db, lockPath);
