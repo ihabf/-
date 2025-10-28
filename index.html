@@ -113,6 +113,10 @@ async function main() {
         return; // إيقاف تحميل باقي السكريبت إذا كان المستخدم محظورًا
     }
 
+    // 🔹 تعريف متغيرات الحالة للمستخدمين والكتابة
+    let currentUsers = {};
+    let currentTyping = {};
+
     // 🔹 اختيار اللون وحفظه
     const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
     const userColor = colors[Math.floor(Math.random()*colors.length)];
