@@ -382,6 +382,20 @@ onValue(gameRef, async (snapshot) => {
     }
 });
 
+// 🌪️ دالة لخلط ترتيب عناصر مصفوفة (خوارزمية Fisher-Yates)
+function shuffleArray(array) {
+    let currentIndex = array.length, randomIndex;
+    // بينما لا يزال هناك عناصر لخلطها
+    while (currentIndex !== 0) {
+        // اختر عنصرًا متبقيًا
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        // وقم بتبديله مع العنصر الحالي
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+    }
+    return array;
+}
+
 // 🔹 دالة مساعدة لإرسال الرسائل ومعالجة أوامر البوت
 async function handleMessageSend(text) {
     if(!text) return;
@@ -447,12 +461,16 @@ async function handleMessageSend(text) {
                 // إرسال رسالة المستخدم "طش" أولاً
                 push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
 
+                // 🌪️ خلط الكلمات واختيار مجموعة عشوائية جديدة لكل جولة
+                const shuffledWords = shuffleArray([...BOT_WORDS_LIST]); // خلط نسخة من القائمة الكاملة
+                const gameWordsForThisRound = shuffledWords.slice(0, savedBotWords.length); // أخذ العدد المطلوب من الكلمات
+
                 // تحديث حالة اللعبة في Firebase لبدء العد التنازلي
                 await set(gameRef, {
                     inProgress: false, // ليست قيد التقدم بعد، العد التنازلي نشط
                     countdownActive: true,
                     countdownInitiatorId: userId, // هذا المستخدم بدأ العد التنازلي
-                    gameWords: savedBotWords,
+                    gameWords: gameWordsForThisRound, // استخدام الكلمات العشوائية لهذه الجولة
                     gameStartTime: 0, // سيتم تعيينه بعد العد التنازلي
                     lastGameId: new Date().getTime() // معرف فريد لجولة اللعبة هذه
                 });
