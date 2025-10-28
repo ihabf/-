@@ -340,25 +340,25 @@ body {
 }
 
 .chat-container {
-  position: absolute;   /* لتحديد الموضع بشكل حر */
-  left: 50%;            /* المنتصف أفقيًا */
-  transform: translateX(-50%);  /* لتوسيطه فعليًا */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   width: 95%;
   max-width: 900px;
   top: 120px;
 }
 
 h2 { 
-    color: #ffffff;
-    margin: 0 0 5px 0;
-    font-size: 1.3em;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  color: #ffffff;
+  margin: 0 0 5px 0;
+  font-size: 1.3em;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 #chat {
   width: 95%;
-  height: 400px; /* 🔹 ارتفاع ثابت يمكنك تغييره حسب رغبتك */
-  overflow-y: auto; /* يسمح بالتمرير عند امتلاء الشات */
+  height: 400px;
+  overflow-y: auto;
   padding: 8px;
   background: rgba(2, 6, 31, 0.692);
   border-radius: 10px;
@@ -366,60 +366,59 @@ h2 {
   box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: #0d083a #11111102;
+  margin-bottom: 0; /* 🔹 إزالة المسافة بين الشات وحقل الإدخال */
 }
 
-
 #chat::-webkit-scrollbar {
-    width: 6px;
+  width: 6px;
 }
 
 #chat::-webkit-scrollbar-track {
-    background: #111111;
+  background: #111111;
 }
 
 #chat::-webkit-scrollbar-thumb {
-    background-color: #333;
-    border-radius: 3px;
+  background-color: #333;
+  border-radius: 3px;
 }
 
 .message {
-    margin-bottom: 12px;
-    line-height: 1;
-    word-wrap: break-word;
-    background: #1f9bcc15;
-    padding: 10px 10px;
-    border-radius: 10px;
-    max-width: 80%;
-    position: relative;
-    animation: fadeIn 0.3s ease-out;
-    font-size: 15px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    /* إزالة أي ظل محتمل هنا */
-    box-shadow: none;
+  margin-bottom: 12px;
+  line-height: 1;
+  word-wrap: break-word;
+  background: #1f9bcc15;
+  padding: 10px 10px;
+  border-radius: 10px;
+  max-width: 80%;
+  position: relative;
+  animation: fadeIn 0.3s ease-out;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: none;
 }
 
 .message strong {
-    display: block;
-    margin-bottom: 4px;
-    font-size: 0.9em;
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.9em;
 }
 
 form {
-    width: 100%;
-    display: flex;
-    gap: 8px;
-    margin: 6px 0;
-    padding: 8px;
-    background:rgba(11, 4, 85, 0.205);
-    box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  gap: 0px;
+  margin-top: 0; /* 🔹 جعل النموذج ملاصقًا للشات */
+  padding: 8px;
+  background: rgba(11, 4, 85, 0.205);
+  box-sizing: border-box;
 }
 
 input {
   width: 100%;
   padding: 8px;
-  margin: 6px 0;
+  margin: 1px 0;
   border-radius: 6px;
   border: none;
   font-size: 1em;
@@ -431,76 +430,76 @@ input {
 }
 
 input:focus {
-    border-color: #2a083d;
+  border-color: #2a083d;
 }
 
 button {
-    padding: 12px 25px;
-    border: none;
-    border-radius: 25px;
-    background: rgba(11, 4, 85, 0.205);
-    color: rgba(143, 142, 153, 0.678);
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
+  padding: 12px 25px;
+  border: none;
+  border-radius: 25px;
+  background: rgba(11, 4, 85, 0.205);
+  color: rgba(143, 142, 153, 0.678);
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
 }
 
 button:hover {
-    background: #0073e6;
+  background: #0073e6;
 }
 
 #typing {
-    color: #999;
-    margin-top: 5px;
-    font-weight: bold;
-    font-size: 1.1em;
-    height: 24px;
-    overflow: hidden;
+  color: #999;
+  margin-top: 5px;
+  font-weight: bold;
+  font-size: 1.1em;
+  height: 24px;
+  overflow: hidden;
 }
 
 #users {
-    list-style: none;
-    padding: 0;
-    margin: 15px 0;
-    width: 95%;
-    max-width: 900px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-    align-items: center;
+  list-style: none;
+  padding: 0;
+  margin: 15px 0;
+  width: 95%;
+  max-width: 900px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
 }
 
 #users li {
-    background: #1a1a1a;
-    margin: 0;
-    padding: 8px 14px;
-    border-radius: 20px;
-    text-align: center;
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    transition: transform 0.15s ease, background 0.15s ease;
+  background: #1a1a1a;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 20px;
+  text-align: center;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
 #users li:hover {
-    transform: translateY(-3px);
-    background: #222222;
+  transform: translateY(-3px);
+  background: #222222;
 }
 
 .dots {
-    display: inline-block;
-    animation: blink 1s infinite;
+  display: inline-block;
+  animation: blink 1s infinite;
 }
 
 @keyframes blink {
-    0%, 100% { opacity: 0; }
-    50% { opacity: 1; }
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media screen and (min-width: 769px) {
@@ -510,50 +509,52 @@ button:hover {
 }
 
 @media screen and (max-width: 768px) {
-    .chat-container {
-    position: fixed;   /* لتحديد الموضع بشكل حر */
-  left: 50%;            /* المنتصف أفقيًا */
-  transform: translateX(-50%);  /* لتوسيطه فعليًا */
-  width: 95%;
-  max-width: 900px;
-  top: 200px;
+  .chat-container {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 95%;
+    max-width: 900px;
+    top: 200px;
   }
-    #chat {
-        width: 95%;
-  height: 200px; /* 🔹 ارتفاع ثابت يمكنك تغييره حسب رغبتك */
-  overflow-y: auto; /* يسمح بالتمرير عند امتلاء الشات */
-  padding: 8px;
-  background: rgba(2, 6, 31, 0.692);
-  border-radius: 10px;
-  text-align: left;
-  box-sizing: border-box;
-  scrollbar-width: thin;
-  scrollbar-color: #0d083a #11111102;
-    }
 
-    .message {
-        word-break: break-word;
-        white-space: pre-wrap;
-    }
+  #chat {
+    width: 95%;
+    height: 200px;
+    overflow-y: auto;
+    padding: 8px;
+    background: rgba(2, 6, 31, 0.692);
+    border-radius: 10px;
+    text-align: left;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #0d083a #11111102;
+    margin-bottom: 0; /* 🔹 لا مسافة أسفل الشات */
+  }
 
-    form {
-        width: 95%;
-        max-width: 500px;
-        margin: 10px auto;
-    }
+  .message {
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
+  form {
+    width: 95%;
+    max-width: 500px;
+    margin: 0 auto; /* 🔹 بدون مسافة بين الشات وحقل الكتابة */
+  }
 }
 
 .message.my-message {
-    margin-left: auto;
-    margin-right: 0;
-    background: rgba(0, 123, 255, 0.3);
-    text-align: right;
-    flex-direction: row-reverse;
+  margin-left: auto;
+  margin-right: 0;
+  background: rgba(0, 123, 255, 0.3);
+  text-align: right;
+  flex-direction: row-reverse;
 }
 
 .message {
-    margin-right: auto;
-    margin-left: 0;
+  margin-right: auto;
+  margin-left: 0;
 }
 
 .avatar {
