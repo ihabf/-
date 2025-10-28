@@ -559,28 +559,6 @@ async function handleMessageSend(text) {
         return;
     }
 
-    // 🔄 أمر "يلا" لإعادة تعيين الجولة
-    if (text.trim() === "يلا") {
-        const currentGameStateSnapshot = await get(gameRef);
-        const currentGameState = currentGameStateSnapshot.val() || {};
-
-        if (currentGameState.inProgress || currentGameState.countdownActive) {
-            // إعادة تعيين حالة اللعبة في Firebase
-            await set(gameRef, {
-                inProgress: false,
-                countdownActive: false,
-                countdownInitiatorId: null,
-                gameWords: [],
-                gameStartTime: 0,
-                lastGameId: null
-            });
-            sendBotMessage("🔄 تم إعادة تعيين الجولة. يمكنكم البدء من جديد بالأمر 'طش'.");
-        }
-        // إرسال رسالة المستخدم "يلا" إلى الشات في كل الأحوال
-        push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
-        return; // إيقاف المزيد من المعالجة
-    }
-
     // 🤖 معالجة أوامر البوت "طش"
     if (text.startsWith("طش")) {
         const currentGameStateSnapshot = await get(gameRef); // الحصول على أحدث حالة للعبة من Firebase
@@ -589,8 +567,7 @@ async function handleMessageSend(text) {
         // إذا كانت اللعبة جارية بالفعل أو العد التنازلي نشط
         if (currentGameState.inProgress || currentGameState.countdownActive) {
             sendBotMessage("لعبة سرعة الكتابة جارية بالفعل. انتظر حتى تنتهي الجولة الحالية.");
-            // لا يزال يتم إرسال رسالة المستخدم "طش" ليراها الجميع
-            push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
+            // لا نرسل رسالة المستخدم هنا لمنع التكرار، فقط نرسل رسالة البوت
             return; // إيقاف المزيد من المعالجة لهذا الأمر
         }
 
@@ -605,15 +582,11 @@ async function handleMessageSend(text) {
             } else {
                 sendBotMessage(`⚠️ يرجى تحديد عدد صحيح بين 1 و ${BOT_WORDS_LIST.length} لحفظ الكلمات.`);
             }
-            push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
             return; // إيقاف المزيد من المعالجة
         }
         // أمر "طش" فقط - لبدء اللعبة
         else if (text === "طش") {
             if (savedBotWords.length > 0) {
-                // إرسال رسالة المستخدم "طش" أولاً
-                push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
-
                 // 🌪️ خلط الكلمات واختيار مجموعة عشوائية جديدة لكل جولة
                 const shuffledWords = shuffleArray([...BOT_WORDS_LIST]); // خلط نسخة من القائمة الكاملة
                 const gameWordsForThisRound = shuffledWords.slice(0, savedBotWords.length); // أخذ العدد المطلوب من الكلمات
@@ -629,13 +602,29 @@ async function handleMessageSend(text) {
                 });
             } else {
                 sendBotMessage("⚠️ لا توجد كلمات محفوظة. استخدم `طش` مع رقم أولاً (مثال: طش5).");
-                push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
             }
             return; // إيقاف المزيد من المعالجة
         }
     }
 
-    // إذا لم يكن أمر "طش"، أو تم التعامل مع الأمر وإيقاف المعالجة، فهذه رسالة عادية
+    // 🔄 أمر "يلا" لإعادة تعيين الجولة
+    if (text.trim() === "يلا") {
+        const currentGameStateSnapshot = await get(gameRef);
+        const currentGameState = currentGameStateSnapshot.val() || {};
+
+        if (currentGameState.inProgress || currentGameState.countdownActive) {
+            // إعادة تعيين حالة اللعبة في Firebase
+            await set(gameRef, {
+                inProgress: false, countdownActive: false, countdownInitiatorId: null,
+                gameWords: [], gameStartTime: 0, lastGameId: null
+            });
+            sendBotMessage("🔄 تم إعادة تعيين الجولة. يمكنكم البدء من جديد بالأمر 'طش'.");
+        }
+        // لا نوقف المعالجة هنا، للسماح بإرسال رسالة "يلا" كرسالة عادية أدناه
+    }
+
+    // إرسال جميع الرسائل العادية (بما في ذلك أوامر البوت التي لم يتم إيقافها)
+    // هذا يضمن أن userId يُرسل دائمًا
     push(messagesRef, {
         user: username,
         userId: userId, // التأكد من إرسال معرف المستخدم دائمًا
