@@ -31,6 +31,14 @@ const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA";
 
+// 🤖 إعدادات البوت "بسام"
+const BOT_NAME = "البوت بسام✔";
+const BOT_COLOR = "#f30217"; // ✨ هذا هو اللون الذي سيظهر به اسم البوت (حالياً أحمر)
+const BOT_AVATAR_COLOR = "red"; // لون مربع الأفاتار في قائمة المتصلين
+const BOT_AVATAR_URL = "https://i.pinimg.com/736x/2a/0d/77/2a0d77e1bf6d19ab336921683544bb35.jpg"; // ✨ ضع رابط صورة البوت هنا
+const BOT_WORDS_LIST = ["تفاحة", "برتقالة", "موز", "فراولة", "عنب", "كرز", "مانجو", "أناناس", "بطيخ", "رمان"]; // قائمة كلمات قابلة للتعديل
+let savedBotWords = JSON.parse(localStorage.getItem("savedBotWords")) || [];
+
 // 🔹 إنشاء معرف فريد للجهاز
 let deviceId = localStorage.getItem("chat_device_id") || "dev_" + Math.floor(Math.random()*1e9);
 localStorage.setItem("chat_device_id", deviceId);
@@ -138,6 +146,16 @@ const playLeave = ()=> playBeep({freq:560, volume:1, duration:0.06});
 // 🔹 عرض المستخدمين مع حالة الكتابة
 function renderUsers(users, typingUsers){
   userList.innerHTML = "";
+
+  // إضافة البوت "بسام" إلى قائمة المتصلين بشكل دائم
+  const botLi = document.createElement("li");
+  botLi.innerHTML = `<img src="${BOT_AVATAR_URL}" class="user-list-avatar"> ${BOT_NAME}`;
+  botLi.style.borderRight = `6px solid ${BOT_AVATAR_COLOR}`;
+  botLi.style.fontWeight = "bold";
+  userList.appendChild(botLi);
+
+
+  // إضافة المستخدمين الحقيقيين
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
     let typingAnim = "";
@@ -186,12 +204,52 @@ onChildRemoved(usersRef, snapshot=>{
   if(audioEnabled) playLeave();
 });
 
+// 🤖 دالة لإرسال رسالة من البوت
+function sendBotMessage(text) {
+  push(messagesRef, {
+    user: BOT_NAME,
+    color: BOT_COLOR,
+    text: text,
+    time: new Date().toLocaleTimeString()
+  });
+}
+
 // 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return;
   const m = snapshot.val();
 
+  // 🤖 معالجة أوامر الأدمن الموجهة للبوت
+  if (m.user === ADMIN_NAME) {
+    const text = m.text.trim();
+    // أمر "طش" مع رقم (مثال: طش7)
+    if (text.startsWith("طش") && text.length > 2) {
+      const numberMatch = text.match(/\d+$/);
+      if (numberMatch) {
+        const count = parseInt(numberMatch[0], 10);
+        // أخذ الكلمات من القائمة وحفظها
+        savedBotWords = BOT_WORDS_LIST.slice(0, count);
+        localStorage.setItem("savedBotWords", JSON.stringify(savedBotWords)); // حفظ في LocalStorage
+        // إرسال رسالة تأكيد من البوت
+        sendBotMessage(`✅ تم الحفظ ${count} كلمات.`);
+        return; // منع عرض رسالة الأمر نفسها في الشات
+      }
+    }
+    // أمر "طش" فقط
+    else if (text === "طش") {
+      if (savedBotWords.length > 0) {
+        // إرسال الكلمات المحفوظة كرسالة واحدة
+        sendBotMessage(savedBotWords.join(" "));
+      } else {
+        // رسالة في حال عدم وجود كلمات محفوظة
+        sendBotMessage("⚠️ لا توجد كلمات محفوظة لإرسالها.");
+      }
+      return; // منع عرض رسالة الأمر نفسها في الشات
+    }
+  }
+
+  // 🔽 الكود التالي لعرض الرسائل العادية في الشات
   // إنشاء الحاوية
   const msgContainer = document.createElement("div");
   msgContainer.classList.add("message");
@@ -199,6 +257,19 @@ onChildAdded(messagesRef, snapshot=>{
   // إذا كانت الرسالة من المستخدم الحالي، أضف فئة خاصة لمحاذاتها يمينًا
   if (m.user === username) {
     msgContainer.classList.add("my-message");
+  }
+
+  // 🤖 إذا كانت الرسالة من البوت، أضف فئة خاصة
+  if (m.user === BOT_NAME) {
+    msgContainer.classList.add("bot-message");
+  }
+
+  // 🤖 إضافة صورة رمزية للبوت
+  if (m.user === BOT_NAME) {
+    const avatar = document.createElement("img");
+    avatar.src = BOT_AVATAR_URL;
+    avatar.classList.add("avatar");
+    msgContainer.appendChild(avatar);
   }
 
   // 🔹 إضافة صورة رمزية لمستخدم واحد محدد (مثلاً المدير)
@@ -218,6 +289,11 @@ let isAdmin = false;
 if (m.user === "KeltA") {
   nameColor = "gold";
   isAdmin = true;
+}
+
+// 🤖 إذا كانت الرسالة من البوت، استخدم لونه المحدد
+if (m.user === BOT_NAME) {
+  nameColor = BOT_COLOR;
 }
 
 // أضف التاج بجانب اسم المسؤول فقط 👑
@@ -405,6 +481,14 @@ h2::after {
   box-shadow: 0 0 6px rgba(0,0,0,0.3);
 }
 
+/* 🤖 رسائل البوت */
+.message.bot-message {
+  background-color: #5c1118a8; /* خلفية مختلفة لرسائل البوت */
+  border-left: 3px solid var(--bot-color, #ff4757);
+  direction: ltr; /* لضمان ظهور الأيقونة يسارًا إذا أضيفت */
+  justify-content: flex-start;
+}
+
 /* 🔹 اسم المستخدم */
 .message strong {
   display: inline;
@@ -427,7 +511,7 @@ h2::after {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 1.5px solid #17be20;
+  border: 1.5px solid #f30f0f;
   flex-shrink: 0;
 }
 
@@ -486,6 +570,14 @@ button:hover {
   border-radius: 15px;
   font-size: 0.9em;
   transition: 0.15s;
+}
+
+/* 🔹 صورة الأفاتار في قائمة المتصلين */
+.user-list-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  margin-left: 5px; /* مسافة بين الصورة والاسم */
 }
 
 #users li:hover {
@@ -550,5 +642,3 @@ button:hover {
 </div>
 </body>
 </html>
-
-
