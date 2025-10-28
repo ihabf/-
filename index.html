@@ -324,9 +324,7 @@ async function main() {
         });
     }
 
-    // 🔹 استقبال المستخدمين والكتابة الحية
-    let currentUsers = {};
-    let currentTyping = {};
+    // 🔹 استقبال المستخدمين
     onValue(usersRef, snapshot=>{
       currentUsers = snapshot.val() || {};
       renderUsers(currentUsers, currentTyping);
