@@ -136,8 +136,10 @@ async function main() {
 
     // 🚫 مراقبة حالة الطرد
     onValue(ref(db, `kickedUsers/${userId}`), (snapshot) => {
-        if (snapshot.exists() && snapshot.val() === true) {
+        // التحقق من وجود القيمة وأنها true
+        if (snapshot.exists() && snapshot.val() === true) { 
             document.body.innerHTML = `<div class="ban-message"><h1>🚫 تم طردك</h1><p>لقد تم طردك من الغرفة بواسطة مشرف.</p></div>`;
+            // إيقاف الاتصال بقاعدة البيانات لمنع أي عمليات أخرى
             onDisconnect(userRef).cancel(); // إلغاء onDisconnect لمنع الحذف
         }
     });
@@ -261,7 +263,7 @@ async function main() {
             if (confirm(`هل أنت متأكد من أنك تريد طرد ${targetUsername}؟`)) {
                 try {
                     // إضافة callerUsername للتحقق من الصلاحيات في الخادم
-                    const result = await kickUserFn({ targetUserId, targetUsername, callerUsername: username });
+                    const result = await kickUserFn({ targetUserId: targetUserId, targetUsername: targetUsername, callerUsername: username });
                     console.log(result.data.message);
                 } catch (error) {
                     console.error("Error kicking user:", error);
@@ -273,11 +275,10 @@ async function main() {
         if (e.target.classList.contains('ban-btn')) {
             const targetUserId = e.target.dataset.userid;
             const targetUsername = e.target.dataset.username;
-            const targetIp = e.target.dataset.ip;
-            if (confirm(`هل أنت متأكد من أنك تريد حظر IP المستخدم ${targetUsername} (${targetIp}) وطرده؟`)) {
+            if (confirm(`هل أنت متأكد من أنك تريد حظر IP المستخدم ${targetUsername} وطرده؟ سيتم الحصول على الـ IP من الخادم.`)) {
                 try {
                     // إضافة callerUsername للتحقق من الصلاحيات في الخادم
-                    const result = await banUserFn({ targetUserId, targetUsername, callerUsername: username });
+                    const result = await banUserFn({ targetUserId: targetUserId, targetUsername: targetUsername, callerUsername: username });
                     console.log(result.data.message);
                 } catch (error) {
                     console.error("Error banning user:", error);
@@ -317,7 +318,7 @@ async function main() {
                 if (confirm('هل أنت متأكد من إلغاء هذا الحظر؟')) {
                     try {
                         // إضافة callerUsername للتحقق من الصلاحيات في الخادم
-                        const result = await unbanIpFn({ ipHash, callerUsername: username });
+                        const result = await unbanIpFn({ ipHash: ipHash, callerUsername: username });
                         console.log(result.data.message);
                     } catch (error) {
                         console.error("Error unbanning IP:", error);
