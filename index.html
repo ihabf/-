@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>💬 دردشة مؤقتة</title>
+<!-- مكتبة SHA256 للتعامل مع التشفير من جانب العميل للتحقق من الحظر -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -28,6 +30,8 @@ const usersRef = ref(db, "users");
 const messagesRef = ref(db, "messages");
 const typingRef = ref(db, "typing");
 const gameRef = ref(db, "game_state"); // 🏁 عقدة جديدة لحالة اللعبة
+const kickedUsersRef = ref(db, "kickedUsers"); // 🚫 عقدة للمستخدمين المطرودين
+const bannedIPsRef = ref(db, "bannedIPs"); // 🚫 عقدة للـ IPs المحظورة
 const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA";
@@ -80,6 +84,29 @@ async function chooseUsername() {
 
 const username = await chooseUsername();
 
+// 🚫 التحقق من الحظر قبل إكمال الاتصال
+async function checkBanStatus() {
+    // هذه دالة وهمية للحصول على IP، في Cloud Function سيكون حقيقيًا
+    // لأغراض الاختبار، سنستخدم قيمة عشوائية أو ثابتة
+    const userIP = "192.168.1." + (Math.floor(Math.random() * 254) + 1); // IP وهمي للاختبار
+    const ipHash = sha256(userIP); // استخدام sha256 من المكتبة المضافة
+
+    const bannedSnapshot = await get(ref(db, `bannedIPs/${ipHash}`));
+    if (bannedSnapshot.exists()) {
+        document.body.innerHTML = `<div class="ban-message"><h1>🚫 أنت محظور</h1><p>تم حظرك من دخول هذه الدردشة.</p></div>`;
+        // إيقاف أي عمليات أخرى
+        throw new Error("User is banned");
+    }
+}
+
+// استدعاء دالة التحقق من الحظر
+try {
+    await checkBanStatus();
+} catch (error) {
+    console.error(error.message);
+    return; // إيقاف تحميل باقي السكريبت إذا كان المستخدم محظورًا
+}
+
 // 🔹 اختيار اللون وحفظه
 const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
 const userColor = colors[Math.floor(Math.random()*colors.length)];
@@ -92,7 +119,18 @@ function isMobileDevice() {
     return /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 const deviceType = isMobileDevice() ? 'mobile' : 'desktop';
-await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now(), device: deviceType });
+// سنضيف IP وهمي هنا ليتم استخدامه بواسطة Cloud Function
+// في البيئة الحقيقية، Cloud Function ستحصل على الـ IP الحقيقي من الطلب
+const fakeIP = "192.168.1." + (Math.floor(Math.random() * 254) + 1);
+await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now(), device: deviceType, ip: fakeIP });
+
+// 🚫 مراقبة حالة الطرد
+onValue(ref(db, `kickedUsers/${userId}`), (snapshot) => {
+    if (snapshot.exists() && snapshot.val() === true) {
+        document.body.innerHTML = `<div class="ban-message"><h1>🚫 تم طردك</h1><p>لقد تم طردك من الغرفة بواسطة مشرف.</p></div>`;
+        onDisconnect(userRef).cancel(); // إلغاء onDisconnect لمنع الحذف
+    }
+});
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
@@ -161,6 +199,7 @@ const playLeave = ()=> playBeep({freq:560, volume:1, duration:0.06});
 // 🔹 عرض المستخدمين مع حالة الكتابة
 function renderUsers(users, typingUsers){
   userList.innerHTML = "";
+  const isAdmin = username === ADMIN_NAME;
 
   // إضافة البوت "بسام" إلى قائمة المتصلين بشكل دائم
   const botLi = document.createElement("li");
@@ -178,7 +217,22 @@ function renderUsers(users, typingUsers){
       typingAnim = `<span class="dots">…</span>`;
     }
     const deviceEmoji = u.device === 'mobile' ? '📱' : '💻';
-    li.innerHTML = `${deviceEmoji} ${u.name} ${typingAnim}`;
+    
+    let adminControls = '';
+    // إذا كان المستخدم الحالي مشرفًا والمستخدم المعروض ليس هو المشرف نفسه
+    if (isAdmin && u.name !== ADMIN_NAME) {
+        adminControls = `
+            <div class="admin-controls">
+                <button class="kick-btn" data-userid="${id}" data-username="${u.name}">طرد</button>
+                <button class="ban-btn" data-userid="${id}" data-username="${u.name}" data-ip="${u.ip || 'N/A'}">حظر IP</button>
+            </div>
+        `;
+    }
+
+    li.innerHTML = `
+        <span>${deviceEmoji} ${u.name} ${typingAnim}</span>
+        ${adminControls}
+    `;
     li.style.borderRight = `6px solid ${u.color}`;
     userList.appendChild(li);
   });
@@ -745,6 +799,10 @@ button:hover {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* 🚫 رسالة الحظر */
+.ban-message { text-align: center; padding-top: 20vh; color: #ff5555; }
+.ban-message h1 { font-size: 2.5em; }
+
 /* 🔹 للهاتف */
 @media screen and (max-width: 768px) {
   #chat {
@@ -774,6 +832,36 @@ button:hover {
     font-size: 0.85em;
   }
 }
+
+/* 🚫 أزرار التحكم للمشرف */
+.admin-controls {
+  margin-right: auto; /* يدفع الأزرار إلى اليسار في LTR، وإلى اليمين في RTL */
+  display: flex;
+  gap: 5px;
+}
+.admin-controls button {
+  padding: 2px 8px;
+  font-size: 0.75em;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+  color: white;
+}
+.kick-btn { background-color: #e67e22; }
+.ban-btn { background-color: #c0392b; }
+.kick-btn:hover { background-color: #d35400; }
+.ban-btn:hover { background-color: #a52a1d; }
+
+/* 🚫 لوحة إدارة الحظر */
+#ban-management { display: none; /* تظهر فقط للمشرف */ }
+#ban-management.visible { display: block; margin-top: 20px; padding: 15px; background: #1a1a1a; border-radius: 8px; }
+#banned-ips-list li { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #333; }
+.unban-btn { background-color: #27ae60; padding: 3px 8px; font-size: 0.8em; }
+
+#users li {
+    display: flex; /* لتمكين محاذاة الأزرار */
+    align-items: center;
+}
 </style>
 
 
@@ -793,6 +881,13 @@ button:hover {
     <input id="msg" placeholder=" " autocomplete="off" />
     <button>إرسال</button>
   </form>
+
+  <!-- 🚫 لوحة إدارة الحظر (للمشرف فقط) -->
+  <div id="ban-management">
+      <h3>إدارة الحظر</h3>
+      <ul id="banned-ips-list"></ul>
+  </div>
+
 </div>
 </body>
 </html>
