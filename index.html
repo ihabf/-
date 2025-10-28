@@ -362,7 +362,7 @@ h2::after {
   left: 25%;
   width: 50%;
   height: 2px;
-  background: linear-gradient(to right, transparent, #7b68ee, transparent);
+  background: linear-gradient(to right, transparent, #7c68ee00, transparent);
   border-radius: 2px;
 }
 
@@ -427,7 +427,7 @@ h2::after {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 1.5px solid #7b68ee;
+  border: 1.5px solid #17be20;
   flex-shrink: 0;
 }
 
@@ -447,7 +447,7 @@ input {
   border-radius: 6px;
   border: none;
   font-size: 0.95em;
-  background-color: #2b2e4a;
+  background-color: #11143100;
   color: #f9f9f9;
   outline: none;
 }
@@ -456,15 +456,15 @@ button {
   padding: 8px 16px;
   border: none;
   border-radius: 6px;
-  background: #7b68ee;
-  color: #fff;
+  background: #7c68ee00;
+  color: #ffee04;
   font-weight: bold;
   cursor: pointer;
   transition: 0.2s;
 }
 
 button:hover {
-  background: #6956d6;
+  background: #6956d600;
 }
 
 /* 🔹 قائمة المستخدمين */
@@ -481,7 +481,7 @@ button:hover {
 }
 
 #users li {
-  background: #1a1a1a;
+  background: #47474721;
   padding: 6px 12px;
   border-radius: 15px;
   font-size: 0.9em;
@@ -540,11 +540,11 @@ button:hover {
 <ul id="users"></ul>
 <!-- تم وضع عناصر الشات داخل حاوية جديدة لتنظيمها -->
 <div class="chat-container">
-  <h2>💬 دردشة مؤقتة</h2>
+  <h2>💬chat</h2>
   <div id="chat"></div>
   <div id="typing"></div>
   <form id="chatForm">
-    <input id="msg" placeholder="اكتب رسالتك..." autocomplete="off" />
+    <input id="msg" placeholder=" " autocomplete="off" />
     <button>إرسال</button>
   </form>
 </div>
