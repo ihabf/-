@@ -29,6 +29,7 @@ const messagesRef = ref(db, "messages");
 const typingRef = ref(db, "typing");
 const gameRef = ref(db, "game_state"); // 🏁 عقدة جديدة لحالة اللعبة
 const savedUsersRef = ref(db, "savedUsers");
+const kickSignalRef = ref(db, "kick_signals"); // 🚫 عقدة جديدة لإشارات الطرد
 
 const ADMIN_NAME = "KeltA";
 
@@ -103,7 +104,7 @@ try {
     console.error("Failed to fetch IP address:", error);
 }
 
-await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now(), device: deviceType, ip: userIP });
+await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now(), device: deviceType, ip: userIP, deviceId: deviceId });
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
@@ -196,6 +197,25 @@ function renderUsers(users, typingUsers){
     }
     li.innerHTML = userDetails;
     li.style.borderRight = `6px solid ${u.color}`;
+
+    // 🚫 إضافة زر الطرد للمدير فقط
+    if (username === ADMIN_NAME && u.name !== ADMIN_NAME && u.deviceId) {
+        const kickButton = document.createElement("button");
+        kickButton.textContent = "🚫";
+        kickButton.title = `طرد المستخدم ${u.name}`;
+        kickButton.className = "kick-button";
+        kickButton.onclick = (e) => {
+            e.stopPropagation(); // منع أي أحداث نقر أخرى
+            if (confirm(`هل أنت متأكد من طرد ${u.name}؟`)) {
+                const signalId = "kick_" + Date.now();
+                set(ref(db, `kick_signals/${signalId}`), { targetDeviceId: u.deviceId });
+                // تنظيف الإشارة بعد بضع ثوانٍ
+                setTimeout(() => remove(ref(db, `kick_signals/${signalId}`)), 5000);
+            }
+        };
+        li.appendChild(kickButton);
+    }
+
     userList.appendChild(li);
   });
 }
@@ -233,6 +253,16 @@ onChildRemoved(usersRef, snapshot=>{
   chatBox.scrollTop = chatBox.scrollHeight;
   if(audioEnabled) playBeep({freq:1200, volume:0.5, duration:0.04}); // صوت استلام رسالة
   if(audioEnabled) playLeave();
+});
+
+// 🚫 الاستماع لإشارات الطرد
+onChildAdded(kickSignalRef, (snapshot) => {
+    const signal = snapshot.val();
+    // إذا كانت الإشارة تستهدف هذا الجهاز
+    if (signal && signal.targetDeviceId === deviceId) {
+        alert("لقد تم طردك من قبل المدير.");
+        window.location.reload();
+    }
 });
 
 // 🤖 دالة لإرسال رسالة من البوت
@@ -740,6 +770,22 @@ button:hover {
   border-radius: 15px;
   font-size: 0.9em;
   transition: 0.15s;
+}
+
+/* 🚫 زر الطرد */
+.kick-button {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  cursor: pointer;
+  font-size: 1.1em;
+  padding: 0 5px;
+  margin-right: 5px; /* مسافة بين الزر والاسم */
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.kick-button:hover {
+  opacity: 1;
 }
 
 /* 🔹 صورة الأفاتار في قائمة المتصلين */
