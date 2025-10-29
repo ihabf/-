@@ -4,18 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>💬 دردشة مؤقتة</title>
-<!-- مكتبة SHA256 للتعامل مع التشفير من جانب العميل للتحقق من الحظر -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-functions.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
-  // ... (باقي إعدادات Firebase)
   authDomain: "kelta-gmae.firebaseapp.com",
   databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
   projectId: "kelta-gmae",
@@ -23,19 +19,15 @@ const firebaseConfig = {
   messagingSenderId: "247464874751",
   appId: "1:247464874751:web:779a3120e6b422fdee72ca",
   measurementId: "G-6C8HGRKLHS"
-  // ...
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const functions = getFunctions(app);
 
 const usersRef = ref(db, "users");
 const messagesRef = ref(db, "messages");
 const typingRef = ref(db, "typing");
 const gameRef = ref(db, "game_state"); // 🏁 عقدة جديدة لحالة اللعبة
-const kickedUsersRef = ref(db, "kickedUsers"); // 🚫 عقدة للمستخدمين المطرودين
-const bannedIPsRef = ref(db, "bannedIPs"); // 🚫 عقدة للـ IPs المحظورة
 const savedUsersRef = ref(db, "savedUsers");
 
 const ADMIN_NAME = "KeltA";
@@ -88,279 +80,144 @@ async function chooseUsername() {
 
 const username = await chooseUsername();
 
-// 🚫 التحقق من الحظر قبل إكمال الاتصال
-async function checkBanStatus() {
-    // هذه دالة وهمية للحصول على IP، في Cloud Function سيكون حقيقيًا
-    // لأغراض الاختبار، سنستخدم قيمة عشوائية أو ثابتة
-    const userIP = "192.168.1." + (Math.floor(Math.random() * 254) + 1); // IP وهمي للاختبار
-    const ipHash = sha256(userIP); // استخدام sha256 من المكتبة المضافة
+// 🔹 اختيار اللون وحفظه
+const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
+const userColor = colors[Math.floor(Math.random()*colors.length)];
+await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
 
-    const bannedSnapshot = await get(ref(db, `bannedIPs/${ipHash}`));
-    if (bannedSnapshot.exists()) {
-        document.body.innerHTML = `<div class="ban-message"><h1>🚫 أنت محظور</h1><p>تم حظرك من دخول هذه الدردشة.</p></div>`;
-        // إيقاف أي عمليات أخرى
-        throw new Error("User is banned");
+// 🔹 إنشاء المستخدم
+const userId = "user_"+Math.floor(Math.random()*1e9); // معرف فريد للمستخدم الحالي
+const userRef = ref(db, "users/"+userId);
+function isMobileDevice() {
+    return /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+const deviceType = isMobileDevice() ? 'mobile' : 'desktop';
+await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now(), device: deviceType });
+onDisconnect(userRef).remove();
+setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
+
+// عناصر الصفحة
+const chatBox=document.getElementById("chat");
+const form=document.getElementById("chatForm");
+const msgInput=document.getElementById("msg");
+const typingBox=document.getElementById("typing");
+const userList=document.getElementById("users");
+
+// 🔹 صوت نقرة هادئة (مولد صوتي صغير عبر Web Audio)
+let audioEnabled = false;
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const audioCtx = new (AudioCtx)();
+document.addEventListener('click', ()=>{
+  audioEnabled = true;
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}, {once: true});
+
+// مولد نقرة قصيرة هادئة (ضوضاء مشطوفة)
+function playClickNoise({volume = 0.05, duration = 0.018} = {}){
+  if(!audioEnabled) return;
+  try{
+    const sampleCount = Math.max(64, Math.floor(audioCtx.sampleRate * duration));
+    const buffer = audioCtx.createBuffer(1, sampleCount, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<sampleCount;i++){
+      const env = Math.exp(-6 * (i / sampleCount));
+      data[i] = (Math.random() * 2 - 1) * env * 0.7;
     }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const g = audioCtx.createGain();
+    g.gain.value = volume;
+    src.connect(g);
+    g.connect(audioCtx.destination);
+    src.start();
+    src.stop(audioCtx.currentTime + duration + 0.01);
+  }catch(e){ /* silent failure */ }
 }
 
-// 🔹 دالة رئيسية لتشغيل التطبيق
-async function main() {
-    // استدعاء دالة التحقق من الحظر
-    try {
-        await checkBanStatus();
-    } catch (error) {
-        console.error(error.message);
-        return; // إيقاف تحميل باقي السكريبت إذا كان المستخدم محظورًا
+// مولد نغمة قصيرة (لتمييز الخروج)
+function playBeep({freq = 700, volume = 0.04, duration = 0.06} = {}){
+  if(!audioEnabled) return;
+  try{
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    g.gain.value = volume;
+    // لفّ سريع للـ gain لإتقان النغمة
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(volume, audioCtx.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+    osc.connect(g);
+    g.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration + 0.01);
+  }catch(e){ /* silent failure */ }
+}
+
+// دوال مريحة للاستخدام في الانضمام/المغادرة
+const playJoin = ()=> playClickNoise({volume:1, duration:0.018});
+const playLeave = ()=> playBeep({freq:560, volume:1, duration:0.06});
+
+// 🔹 عرض المستخدمين مع حالة الكتابة
+function renderUsers(users, typingUsers){
+  userList.innerHTML = "";
+
+  // إضافة البوت "بسام" إلى قائمة المتصلين بشكل دائم
+  const botLi = document.createElement("li");
+  botLi.innerHTML = `<img src="${BOT_AVATAR_URL}" class="user-list-avatar"> ${BOT_NAME}`;
+  botLi.style.borderRight = `6px solid ${BOT_AVATAR_COLOR}`;
+  botLi.style.fontWeight = "bold";
+  userList.appendChild(botLi);
+
+
+  // إضافة المستخدمين الحقيقيين
+  Object.entries(users).forEach(([id,u])=>{
+    const li = document.createElement("li");
+    let typingAnim = "";
+    if(typingUsers[id]){
+      typingAnim = `<span class="dots">…</span>`;
     }
+    const deviceEmoji = u.device === 'mobile' ? '📱' : '💻';
+    li.innerHTML = `${deviceEmoji} ${u.name} ${typingAnim}`;
+    li.style.borderRight = `6px solid ${u.color}`;
+    userList.appendChild(li);
+  });
+}
 
-    // 🔹 تعريف متغيرات الحالة للمستخدمين والكتابة
-    let currentUsers = {};
-    let currentTyping = {};
+// 🔹 استقبال المستخدمين والكتابة الحية
+let currentUsers = {};
+let currentTyping = {};
+onValue(usersRef, snapshot=>{
+  currentUsers = snapshot.val() || {};
+  renderUsers(currentUsers, currentTyping);
+});
 
-    // 🔹 اختيار اللون وحفظه
-    const colors = ["#ffadad","#ffd6a5","#fdffb6","#caffbf","#9bf6ff","#a0c4ff","#bdb2ff","#ffc6ff"];
-    const userColor = colors[Math.floor(Math.random()*colors.length)];
-    await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
-
-    // 🔹 إنشاء المستخدم
-    const userId = "user_"+Math.floor(Math.random()*1e9); // معرف فريد للمستخدم الحالي
-    const userRef = ref(db, "users/"+userId);
-    function isMobileDevice() {
-        return /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    }
-    const deviceType = isMobileDevice() ? 'mobile' : 'desktop';
-    // سنضيف IP وهمي هنا ليتم استخدامه بواسطة Cloud Function
-    // في البيئة الحقيقية، Cloud Function ستحصل على الـ IP الحقيقي من الطلب
-    const fakeIP = "192.168.1." + (Math.floor(Math.random() * 254) + 1);
-    await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now(), device: deviceType, ip: fakeIP });
-
-    // 🚫 مراقبة حالة الطرد
-    onValue(ref(db, `kickedUsers/${userId}`), (snapshot) => {
-        // التحقق من وجود القيمة وأنها true
-        if (snapshot.exists() && snapshot.val() === true) { 
-            document.body.innerHTML = `<div class="ban-message"><h1>🚫 تم طردك</h1><p>لقد تم طردك من الغرفة بواسطة مشرف.</p></div>`;
-            // إيقاف الاتصال بقاعدة البيانات لمنع أي عمليات أخرى
-            onDisconnect(userRef).cancel(); // إلغاء onDisconnect لمنع الحذف
-        }
-    });
-    onDisconnect(userRef).remove();
-    setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
-
-    // عناصر الصفحة
-    const chatBox=document.getElementById("chat");
-    const form=document.getElementById("chatForm");
-    const msgInput=document.getElementById("msg");
-    const typingBox=document.getElementById("typing");
-    const userList=document.getElementById("users");
-
-    // 🔹 صوت نقرة هادئة (مولد صوتي صغير عبر Web Audio)
-    let audioEnabled = false;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new (AudioCtx)();
-    document.addEventListener('click', ()=>{
-      audioEnabled = true;
-      if(audioCtx.state === 'suspended') audioCtx.resume();
-    }, {once: true});
-
-    // مولد نقرة قصيرة هادئة (ضوضاء مشطوفة)
-    function playClickNoise({volume = 0.05, duration = 0.018} = {}){
-      if(!audioEnabled) return;
-      try{
-        const sampleCount = Math.max(64, Math.floor(audioCtx.sampleRate * duration));
-        const buffer = audioCtx.createBuffer(1, sampleCount, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for(let i=0;i<sampleCount;i++){
-          const env = Math.exp(-6 * (i / sampleCount));
-          data[i] = (Math.random() * 2 - 1) * env * 0.7;
-        }
-        const src = audioCtx.createBufferSource();
-        src.buffer = buffer;
-        const g = audioCtx.createGain();
-        g.gain.value = volume;
-        src.connect(g);
-        g.connect(audioCtx.destination);
-        src.start();
-        src.stop(audioCtx.currentTime + duration + 0.01);
-      }catch(e){ /* silent failure */ }
-    }
-
-    // مولد نغمة قصيرة (لتمييز الخروج)
-    function playBeep({freq = 700, volume = 0.04, duration = 0.06} = {}){
-      if(!audioEnabled) return;
-      try{
-        const osc = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        g.gain.value = volume;
-        // لفّ سريع للـ gain لإتقان النغمة
-        g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(volume, audioCtx.currentTime + 0.01);
-        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-        osc.connect(g);
-        g.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration + 0.01);
-      }catch(e){ /* silent failure */ }
-    }
-
-    // دوال مريحة للاستخدام في الانضمام/المغادرة
-    const playJoin = ()=> playClickNoise({volume:1, duration:0.018});
-    const playLeave = ()=> playBeep({freq:560, volume:1, duration:0.06});
-
-    // 🔹 عرض المستخدمين مع حالة الكتابة
-    function renderUsers(users, typingUsers){
-      userList.innerHTML = "";
-      const isAdmin = username === ADMIN_NAME;
-
-      // إضافة البوت "بسام" إلى قائمة المتصلين بشكل دائم
-      const botLi = document.createElement("li");
-      botLi.innerHTML = `<img src="${BOT_AVATAR_URL}" class="user-list-avatar"> ${BOT_NAME}`;
-      botLi.style.borderRight = `6px solid ${BOT_AVATAR_COLOR}`;
-      botLi.style.fontWeight = "bold";
-      userList.appendChild(botLi);
-
-
-      // إضافة المستخدمين الحقيقيين
-      Object.entries(users).forEach(([id,u])=>{
-        const li = document.createElement("li");
-        let typingAnim = "";
-        if(typingUsers[id]){
-          typingAnim = `<span class="dots">…</span>`;
-        }
-        const deviceEmoji = u.device === 'mobile' ? '📱' : '💻';
-        
-        let adminControls = '';
-        // إذا كان المستخدم الحالي مشرفًا والمستخدم المعروض ليس هو المشرف نفسه
-        if (isAdmin && u.name !== ADMIN_NAME) {
-            adminControls = `
-                <div class="admin-controls">
-                    <button class="kick-btn" data-userid="${id}" data-username="${u.name}">طرد</button>
-                    <button class="ban-btn" data-userid="${id}" data-username="${u.name}" data-ip="${u.ip || 'N/A'}">حظر IP</button>
-                </div>
-            `;
-        }
-
-        li.innerHTML = `
-            <span>${deviceEmoji} ${u.name} ${typingAnim}</span>
-            ${adminControls}
-        `;
-        li.style.borderRight = `6px solid ${u.color}`;
-        userList.appendChild(li);
-      });
-    }
-
-    // 🚫 استدعاء وظائف Cloud Functions
-    const kickUserFn = httpsCallable(functions, 'kickUser');
-    const banUserFn = httpsCallable(functions, 'banUser');
-    const unbanIpFn = httpsCallable(functions, 'unbanIp');
-
-    // 🚫 معالجة أحداث الضغط على أزرار التحكم
-    userList.addEventListener('click', async (e) => {
-        if (e.target.classList.contains('kick-btn')) {
-            const targetUserId = e.target.dataset.userid;
-            const targetUsername = e.target.dataset.username;
-            if (confirm(`هل أنت متأكد من أنك تريد طرد ${targetUsername}؟`)) {
-                try {
-                    // إضافة callerUsername للتحقق من الصلاحيات في الخادم
-                    const result = await kickUserFn({ targetUserId: targetUserId, targetUsername: targetUsername, callerUsername: username });
-                    console.log(result.data.message);
-                } catch (error) {
-                    console.error("Error kicking user:", error);
-                    alert(`فشل الطرد: ${error.details || error.message}`);
-                }
-            }
-        }
-
-        if (e.target.classList.contains('ban-btn')) {
-            const targetUserId = e.target.dataset.userid;
-            const targetUsername = e.target.dataset.username;
-            if (confirm(`هل أنت متأكد من أنك تريد حظر IP المستخدم ${targetUsername} وطرده؟ سيتم الحصول على الـ IP من الخادم.`)) {
-                try {
-                    // إضافة callerUsername للتحقق من الصلاحيات في الخادم
-                    const result = await banUserFn({ targetUserId: targetUserId, targetUsername: targetUsername, callerUsername: username });
-                    console.log(result.data.message);
-                } catch (error) {
-                    console.error("Error banning user:", error);
-                    alert(`فشل الحظر: ${error.details || error.message}`);
-                }
-            }
-        }
-    });
-
-    // 🚫 عرض وإدارة لوحة الحظر للمشرف
-    if (username === ADMIN_NAME) {
-        const banManagementDiv = document.getElementById('ban-management');
-        const bannedIpsList = document.getElementById('banned-ips-list');
-        banManagementDiv.classList.add('visible');
-
-        onValue(bannedIPsRef, (snapshot) => {
-            bannedIpsList.innerHTML = '';
-            const banned = snapshot.val() || {};
-            if (Object.keys(banned).length === 0) {
-                bannedIpsList.innerHTML = '<li>لا توجد عناوين IP محظورة حاليًا.</li>';
-            }
-            for (const [ipHash, data] of Object.entries(banned)) {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <span>
-                        ${data.originalIpSnippet || 'N/A'} (محظور بواسطة: ${data.bannedBy} في ${new Date(data.timestamp).toLocaleString()})
-                    </span>
-                    <button class="unban-btn" data-iphash="${ipHash}">إلغاء الحظر</button>
-                `;
-                bannedIpsList.appendChild(li);
-            }
-        });
-
-        bannedIpsList.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('unban-btn')) {
-                const ipHash = e.target.dataset.iphash;
-                if (confirm('هل أنت متأكد من إلغاء هذا الحظر؟')) {
-                    try {
-                        // إضافة callerUsername للتحقق من الصلاحيات في الخادم
-                        const result = await unbanIpFn({ ipHash: ipHash, callerUsername: username });
-                        console.log(result.data.message);
-                    } catch (error) {
-                        console.error("Error unbanning IP:", error);
-                        alert(`فشل إلغاء الحظر: ${error.details || error.message}`);
-                    }
-                }
-            }
-        });
-    }
-
-    // 🔹 استقبال المستخدمين
-    onValue(usersRef, snapshot=>{
-      currentUsers = snapshot.val() || {};
-      renderUsers(currentUsers, currentTyping);
-    });
-
-    // 🔹 إشعار عند دخول وخروج المستخدمين
-    onChildAdded(usersRef, snapshot=>{
-      const u = snapshot.val();
-      if(u.name !== username){
-        const div = document.createElement("div");
-        div.className="message";
-        div.style.fontStyle="italic";
-        div.style.color="#55ff55";
-        div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-        if(audioEnabled) playJoin();
-      }
-    });
-    onChildRemoved(usersRef, snapshot=>{
-      const u = snapshot.val();
-      const div = document.createElement("div");
-      div.className="message";
-      div.style.fontStyle="italic";
-      div.style.color="#ff5555";
-      div.textContent = `❌ ${u.name} غادر الغرفة`;
-      chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight;
-      if(audioEnabled) playBeep({freq:1200, volume:0.5, duration:0.04}); // صوت استلام رسالة
-      if(audioEnabled) playLeave();
-    });
+// 🔹 إشعار عند دخول وخروج المستخدمين
+onChildAdded(usersRef, snapshot=>{
+  const u = snapshot.val();
+  if(u.name !== username){
+    const div = document.createElement("div");
+    div.className="message";
+    div.style.fontStyle="italic";
+    div.style.color="#55ff55";
+    div.textContent = `✅ ${u.name} انضم إلى الغرفة`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    if(audioEnabled) playJoin();
+  }
+});
+onChildRemoved(usersRef, snapshot=>{
+  const u = snapshot.val();
+  const div = document.createElement("div");
+  div.className="message";
+  div.style.fontStyle="italic";
+  div.style.color="#ff5555";
+  div.textContent = `❌ ${u.name} غادر الغرفة`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+  if(audioEnabled) playBeep({freq:1200, volume:0.5, duration:0.04}); // صوت استلام رسالة
+  if(audioEnabled) playLeave();
+});
 
 // 🤖 دالة لإرسال رسالة من البوت
 function sendBotMessage(text) {
@@ -560,6 +417,28 @@ async function handleMessageSend(text) {
         return;
     }
 
+    // 🔄 أمر "يلا" لإعادة تعيين الجولة
+    if (text.trim() === "يلا") {
+        const currentGameStateSnapshot = await get(gameRef);
+        const currentGameState = currentGameStateSnapshot.val() || {};
+
+        if (currentGameState.inProgress || currentGameState.countdownActive) {
+            // إعادة تعيين حالة اللعبة في Firebase
+            await set(gameRef, {
+                inProgress: false,
+                countdownActive: false,
+                countdownInitiatorId: null,
+                gameWords: [],
+                gameStartTime: 0,
+                lastGameId: null
+            });
+            sendBotMessage("🔄 تم إعادة تعيين الجولة. يمكنكم البدء من جديد بالأمر 'طش'.");
+        }
+        // إرسال رسالة المستخدم "يلا" إلى الشات في كل الأحوال
+        push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
+        return; // إيقاف المزيد من المعالجة
+    }
+
     // 🤖 معالجة أوامر البوت "طش"
     if (text.startsWith("طش")) {
         const currentGameStateSnapshot = await get(gameRef); // الحصول على أحدث حالة للعبة من Firebase
@@ -568,7 +447,8 @@ async function handleMessageSend(text) {
         // إذا كانت اللعبة جارية بالفعل أو العد التنازلي نشط
         if (currentGameState.inProgress || currentGameState.countdownActive) {
             sendBotMessage("لعبة سرعة الكتابة جارية بالفعل. انتظر حتى تنتهي الجولة الحالية.");
-            // لا نرسل رسالة المستخدم هنا لمنع التكرار، فقط نرسل رسالة البوت
+            // لا يزال يتم إرسال رسالة المستخدم "طش" ليراها الجميع
+            push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
             return; // إيقاف المزيد من المعالجة لهذا الأمر
         }
 
@@ -583,11 +463,15 @@ async function handleMessageSend(text) {
             } else {
                 sendBotMessage(`⚠️ يرجى تحديد عدد صحيح بين 1 و ${BOT_WORDS_LIST.length} لحفظ الكلمات.`);
             }
+            push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
             return; // إيقاف المزيد من المعالجة
         }
         // أمر "طش" فقط - لبدء اللعبة
         else if (text === "طش") {
             if (savedBotWords.length > 0) {
+                // إرسال رسالة المستخدم "طش" أولاً
+                push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
+
                 // 🌪️ خلط الكلمات واختيار مجموعة عشوائية جديدة لكل جولة
                 const shuffledWords = shuffleArray([...BOT_WORDS_LIST]); // خلط نسخة من القائمة الكاملة
                 const gameWordsForThisRound = shuffledWords.slice(0, savedBotWords.length); // أخذ العدد المطلوب من الكلمات
@@ -603,29 +487,13 @@ async function handleMessageSend(text) {
                 });
             } else {
                 sendBotMessage("⚠️ لا توجد كلمات محفوظة. استخدم `طش` مع رقم أولاً (مثال: طش5).");
+                push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
             }
             return; // إيقاف المزيد من المعالجة
         }
     }
 
-    // 🔄 أمر "يلا" لإعادة تعيين الجولة
-    if (text.trim() === "يلا") {
-        const currentGameStateSnapshot = await get(gameRef);
-        const currentGameState = currentGameStateSnapshot.val() || {};
-
-        if (currentGameState.inProgress || currentGameState.countdownActive) {
-            // إعادة تعيين حالة اللعبة في Firebase
-            await set(gameRef, {
-                inProgress: false, countdownActive: false, countdownInitiatorId: null,
-                gameWords: [], gameStartTime: 0, lastGameId: null
-            });
-            sendBotMessage("🔄 تم إعادة تعيين الجولة. يمكنكم البدء من جديد بالأمر 'طش'.");
-        }
-        // لا نوقف المعالجة هنا، للسماح بإرسال رسالة "يلا" كرسالة عادية أدناه
-    }
-
-    // إرسال جميع الرسائل العادية (بما في ذلك أوامر البوت التي لم يتم إيقافها)
-    // هذا يضمن أن userId يُرسل دائمًا
+    // إذا لم يكن أمر "طش"، أو تم التعامل مع الأمر وإيقاف المعالجة، فهذه رسالة عادية
     push(messagesRef, {
         user: username,
         userId: userId, // التأكد من إرسال معرف المستخدم دائمًا
@@ -683,9 +551,6 @@ onValue(typingRef,snapshot=>{
     .map(([id,u])=>u.name);
   typingBox.textContent = names.length ? `${names.join(" و ")} ${names.length>1?"يكتبون الآن...":"يكتب الآن..."}` : "";
 });
-
-} // نهاية الدالة main
-main(); // استدعاء الدالة الرئيسية لبدء التطبيق
 </script>
 
 <style>
@@ -880,10 +745,6 @@ button:hover {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* 🚫 رسالة الحظر */
-.ban-message { text-align: center; padding-top: 20vh; color: #ff5555; }
-.ban-message h1 { font-size: 2.5em; }
-
 /* 🔹 للهاتف */
 @media screen and (max-width: 768px) {
   #chat {
@@ -913,36 +774,6 @@ button:hover {
     font-size: 0.85em;
   }
 }
-
-/* 🚫 أزرار التحكم للمشرف */
-.admin-controls {
-  margin-right: auto; /* يدفع الأزرار إلى اليسار في LTR، وإلى اليمين في RTL */
-  display: flex;
-  gap: 5px;
-}
-.admin-controls button {
-  padding: 2px 8px;
-  font-size: 0.75em;
-  border-radius: 4px;
-  cursor: pointer;
-  border: none;
-  color: white;
-}
-.kick-btn { background-color: #e67e22; }
-.ban-btn { background-color: #c0392b; }
-.kick-btn:hover { background-color: #d35400; }
-.ban-btn:hover { background-color: #a52a1d; }
-
-/* 🚫 لوحة إدارة الحظر */
-#ban-management { display: none; /* تظهر فقط للمشرف */ }
-#ban-management.visible { display: block; margin-top: 20px; padding: 15px; background: #1a1a1a; border-radius: 8px; }
-#banned-ips-list li { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #333; }
-.unban-btn { background-color: #27ae60; padding: 3px 8px; font-size: 0.8em; }
-
-#users li {
-    display: flex; /* لتمكين محاذاة الأزرار */
-    align-items: center;
-}
 </style>
 
 
@@ -962,13 +793,6 @@ button:hover {
     <input id="msg" placeholder=" " autocomplete="off" />
     <button>إرسال</button>
   </form>
-
-  <!-- 🚫 لوحة إدارة الحظر (للمشرف فقط) -->
-  <div id="ban-management">
-      <h3>إدارة الحظر</h3>
-      <ul id="banned-ips-list"></ul>
-  </div>
-
 </div>
 </body>
 </html>
