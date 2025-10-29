@@ -92,7 +92,18 @@ function isMobileDevice() {
     return /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 const deviceType = isMobileDevice() ? 'mobile' : 'desktop';
-await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now(), device: deviceType });
+
+// 🔹 جلب IP المستخدم وتخزينه
+let userIP = "N/A"; // قيمة افتراضية في حال فشل الجلب
+try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+    userIP = data.ip;
+} catch (error) {
+    console.error("Failed to fetch IP address:", error);
+}
+
+await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now(), device: deviceType, ip: userIP });
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
@@ -178,7 +189,12 @@ function renderUsers(users, typingUsers){
       typingAnim = `<span class="dots">…</span>`;
     }
     const deviceEmoji = u.device === 'mobile' ? '📱' : '💻';
-    li.innerHTML = `${deviceEmoji} ${u.name} ${typingAnim}`;
+    // 🔹 عرض IP للمدير فقط
+    let userDetails = `${deviceEmoji} ${u.name} ${typingAnim}`;
+    if (username === ADMIN_NAME && u.ip) {
+        userDetails += ` <span style="color: #ffcc00; font-size: 0.8em;">(${u.ip})</span>`;
+    }
+    li.innerHTML = userDetails;
     li.style.borderRight = `6px solid ${u.color}`;
     userList.appendChild(li);
   });
