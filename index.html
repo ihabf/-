@@ -9,7 +9,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -476,7 +476,6 @@ onValue(messagesRef, snapshot => {
 // 🏁 Listener لحالة اللعبة من Firebase
 onValue(gameRef, async (snapshot) => {
     const firebaseState = snapshot.val() || {};
-    const { runTransaction } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js");
 
     // تحديث الحالة المحلية للعبة بناءً على Firebase
     localGameState = {
