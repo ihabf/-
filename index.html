@@ -607,7 +607,7 @@ async function handleMessageSend(text) {
         }
         // أمر "طش" فقط - لبدء اللعبة
         else if (text === "طش") {
-            if (savedBotWords.length > 0) {
+            if (BOT_WORDS_LIST.length > 0) {
             if (localGameState.wordCount > 0) {
                 // إرسال رسالة المستخدم "طش" أولاً
                 push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
