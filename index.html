@@ -9,7 +9,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -346,38 +346,28 @@ function sendBotMessage(text) {
   });
 }
 
-// 🏁 دالة مركزية للتحقق من الفائز (تُستدعى عند وصول رسالة جديدة)
-async function checkForWinner(message) {
-    // 1. التحقق الأولي: هل اللعبة نشطة؟ هل الرسالة من لاعب (وليس البوت)؟
-    if (!localGameState.inProgress || message.userId === "bot_id") {
-        return;
-    }
+// 🏁 دالة للتحقق من الفائز في لعبة السرعة
+async function checkGameWinner(message) {
+    // تحقق مما إذا كانت اللعبة نشطة، والرسالة من مستخدم (ليست من البوت)، وهناك كلمات للعبة
+    if (localGameState.inProgress && message.userId !== "bot_id" && localGameState.gameWords.length > 0) {
+        const expectedText = localGameState.gameWords.join(" ");
+        
+        // إذا كانت الرسالة مطابقة للكلمات المطلوبة
+        if (message.text.trim() === expectedText) {
+            const timeTaken = (message.timestamp - localGameState.gameStartTime) / 1000; // بالثواني
+            const wordsPerMinute = Math.round((localGameState.gameWords.length / timeTaken) * 60);
 
-    // 2. مطابقة الإجابة: هل تتطابق رسالة المستخدم مع كلمات اللعبة؟
-    const expectedAnswer = localGameState.gameWords.join(" ");
-    if (message.text.trim() === expectedAnswer) {
-        // 3. حساب السرعة
-        const timeTaken = (message.timestamp - localGameState.gameStartTime) / 1000; // بالثواني
-        const wordsPerMinute = Math.round((localGameState.wordCount / timeTaken) * 60);
-
-        // 4. استخدام معاملة Firebase لتحديث الفائز بشكل آمن
-        // هذا يضمن أن أول شخص ينجح في تحديث الحالة هو الفائز الوحيد
-        const { committed } = await runTransaction(gameRef, (currentState) => {
-            // إذا لم تكن هناك حالة حالية أو إذا تم تحديد فائز بالفعل، قم بالإلغاء
-            if (!currentState || currentState.winnerInfo) {
-                return; // Abort transaction
-            }
-            // قم بتحديث الحالة بمعلومات الفائز
-            currentState.inProgress = false; // إنهاء اللعبة
-            currentState.winnerInfo = {
-                winnerName: message.user,
-                wpm: wordsPerMinute,
-                announced: false // سيتم تحديثها إلى true بعد الإعلان
-            };
-            return currentState;
-        });
+            // تحديث حالة اللعبة في Firebase لإعلان الفائز وإنهاء الجولة
+            // هذا يضمن أن أول شخص يرسل الإجابة الصحيحة هو الفائز الوحيد
+            await set(gameRef, {
+                ...localGameState,
+                inProgress: false, // إنهاء اللعبة
+                winnerInfo: { winnerName: message.user, wpm: wordsPerMinute, announced: false }
+            });
+        }
     }
 }
+
 // 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
@@ -387,8 +377,8 @@ onChildAdded(messagesRef, snapshot=>{
   const m = snapshot.val();
   const messageKey = snapshot.key; // مفتاح الرسالة الفريد
 
-  // 🏁 استدعاء دالة التحقق من الفائز لكل رسالة جديدة
-  checkForWinner(m);
+  // 🏁 التحقق مما إذا كانت هذه الرسالة هي الإجابة الفائزة
+  checkGameWinner(m);
 
   // 🤖 الرد على التحية
   // يتم التحقق فقط إذا كانت الرسالة ليست من البوت، والنص هو "السلام عليكم"، ولم يتم الرد عليها بعد
