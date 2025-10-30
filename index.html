@@ -358,15 +358,16 @@ onValue(gameRef, async (snapshot) => {
             initiatedCountdownGameId = localGameState.lastGameId; // وضع علامة على هذه الجولة
 
             // تسلسل العد التنازلي
-            await new Promise(resolve => setTimeout(resolve, 500)); // Initial delay before "3..."
+            await new Promise(resolve => setTimeout(resolve, 500));
             sendBotMessage("3...");
             await new Promise(resolve => setTimeout(resolve, 1000));
             sendBotMessage("2...");
             await new Promise(resolve => setTimeout(resolve, 1000));
             sendBotMessage("1...");
             await new Promise(resolve => setTimeout(resolve, 1000));
- 
+
             // بعد العد التنازلي، أرسل الكلمات وحدث حالة اللعبة في Firebase
+            sendBotMessage(` ${localGameState.gameWords.join(" ")}`);
             const newGameStartTime = Date.now();
             await set(gameRef, {
                 ...localGameState, // الاحتفاظ بالخصائص الأخرى
@@ -374,10 +375,6 @@ onValue(gameRef, async (snapshot) => {
                 inProgress: true,      // اللعبة الآن نشطة
                 gameStartTime: newGameStartTime
             });
-
-            // إضافة تأخير بسيط لضمان تحديث حالة اللعبة في Firebase قبل إرسال الكلمات
-            await new Promise(resolve => setTimeout(resolve, 100));
-            sendBotMessage(` ${localGameState.gameWords.join(" ")}`);
         }
     } else if (!localGameState.inProgress && !localGameState.countdownActive) {
         // إذا لم تكن اللعبة قيد التقدم ولا يوجد عد تنازلي، أعد تعيين علامة المبادرة
@@ -412,20 +409,12 @@ async function handleMessageSend(text) {
     // 🔄 أمر "يلا" لإعادة تعيين الجولة
     if (text.trim() === "يلا") {
         const currentGameStateSnapshot = await get(gameRef);
-        const currentGameState = currentGameStateSnapshot.val() || {};
-
-        if (currentGameState.inProgress || currentGameState.countdownActive) {
-            // إعادة تعيين حالة اللعبة في Firebase
-            await set(gameRef, {
-                inProgress: false,
-                countdownActive: false,
-                countdownInitiatorId: null,
-                gameWords: [],
-                gameStartTime: 0,
-                lastGameId: null
-            });
-            sendBotMessage("🔄 تم إعادة تعيين الجولة. يمكنكم البدء من جديد بالأمر 'طش'.");
-        }
+        // إعادة تعيين حالة اللعبة في Firebase بغض النظر عن حالتها الحالية
+        await set(gameRef, {
+            inProgress: false, countdownActive: false, countdownInitiatorId: null,
+            gameWords: [], gameStartTime: 0, lastGameId: null
+        });
+        sendBotMessage("🔄 تم إعادة تعيين الجولة. يمكنكم البدء من جديد بالأمر 'طش'.");
         // إرسال رسالة المستخدم "يلا" إلى الشات في كل الأحوال
         push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
         return; // إيقاف المزيد من المعالجة
