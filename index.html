@@ -50,6 +50,8 @@ let localGameState = {
     gameWords: [],             // الكلمات الحالية للعبة
     gameStartTime: 0,          // وقت بدء اللعبة الفعلي (بعد العد التنازلي)
     lastGameId: null,          // معرف فريد لكل جولة لعبة لمنع التكرار
+    countdownMessagesSent: false, // 🆕 لتتبع ما إذا كانت رسائل العد التنازلي قد أُرسلت
+    winnerAnnounced: false,    // 🆕 لتتبع ما إذا كان الفائز قد أُعلن
     wordCount: 5               // 🔹 عدد الكلمات المشترك للعبة، القيمة الافتراضية 5
 };
 
@@ -371,14 +373,10 @@ onChildAdded(messagesRef, snapshot=>{
   if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp >= localGameState.gameStartTime) {
     // إنهاء اللعبة في Firebase أولاً لمنع إعلانات الفوز المتعددة
     // العميل الأول الذي ينجح في تحديث الحالة هو فقط من سيعلن الفائز
-    set(gameRef, {
+    // 💡 استخدام 'update' لتغيير فقط الخصائص الضرورية وعدم مسح 'gameWords' و 'gameStartTime'
+    update(gameRef, {
         inProgress: false, // أهم خطوة: إيقاف اللعبة فورًا
         countdownActive: false,
-        countdownInitiatorId: null,
-        gameWords: [],
-        gameStartTime: 0,
-        lastGameId: localGameState.lastGameId,
-        wordCount: localGameState.wordCount,
         winnerInfo: { // إضافة معلومات الفائز
             user: m.user,
             time: m.timestamp
@@ -467,28 +465,42 @@ onValue(gameRef, async (snapshot) => {
         gameWords: firebaseState.gameWords || [],
         gameStartTime: firebaseState.gameStartTime || 0,
         lastGameId: firebaseState.lastGameId || null,
-        wordCount: firebaseState.wordCount || 5 // 🔹 قراءة عدد الكلمات من Firebase
+        wordCount: firebaseState.wordCount || 5, // 🔹 قراءة عدد الكلمات من Firebase
+        countdownMessagesSent: firebaseState.countdownMessagesSent || false, // 🆕 تحديث الحالة المحلية
+        winnerAnnounced: firebaseState.winnerAnnounced || false // 🆕 تحديث الحالة المحلية
     };
 
     // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
     // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
-    if (!localGameState.inProgress && firebaseState.winnerInfo) {
+    // 💡 فقط العميل الذي بدأ اللعبة هو من يعلن الفائز لضمان دقة وقت البدء
+    if (!localGameState.inProgress && firebaseState.winnerInfo && localGameState.countdownInitiatorId === userId && !localGameState.winnerAnnounced) {
         const winnerData = firebaseState.winnerInfo;
-        const timeDiffSeconds = (winnerData.time - firebaseState.gameStartTime) / 1000;
-        // 🛡️ إضافة تحقق للتأكد من وجود gameWords قبل استخدام .join لتجنب الخطأ
-        const totalChars = (firebaseState.gameWords || []).join(" ").length;
-        const wpm = Math.round((totalChars / 5) / (timeDiffSeconds / 60));
+
+        // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع التكرار
+        await update(gameRef, { winnerAnnounced: true });
+
+        // استخدام gameStartTime من الحالة المحلية للعميل البادئ لأنه الأكثر دقة
+        const timeDiffSeconds = (winnerData.time - localGameState.gameStartTime) / 1000;
+        // 🛡️ استخدام localGameState.gameWords بدلاً من firebaseState.gameWords
+        const totalChars = (localGameState.gameWords || []).join(" ").length;
+        const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
 
         // إعلان الفائز عبر البوت
         sendBotMessage(`🏆 الفائز هو ${winnerData.user} بسرعة ${wpm} كلمة في الدقيقة!`);
 
         // حذف معلومات الفائز من Firebase بعد إعلان النتيجة لمنع تكرار الإعلان عند إعادة تحميل الصفحة
-        update(gameRef, { winnerInfo: null });
+        // وإعادة تعيين الكلمات
+        await update(gameRef, { winnerInfo: null, gameWords: [] });
     }
     // منطق تشغيل العد التنازلي للعميل المحدد فقط
-    if (localGameState.countdownActive && localGameState.countdownInitiatorId === userId) {
+    // 🆕 إضافة شرط !localGameState.countdownMessagesSent لمنع تكرار رسائل العد التنازلي
+    if (localGameState.countdownActive && localGameState.countdownInitiatorId === userId && !localGameState.countdownMessagesSent) {
         // التحقق مما إذا كان هذا العميل قد بدأ العد التنازلي بالفعل لهذه الجولة
         if (initiatedCountdownGameId !== localGameState.lastGameId) {
+            // 🆕 وضع علامة في Firebase بأن رسائل العد التنازلي قد أُرسلت لمنع التكرار
+            // يجب أن يتم هذا قبل إرسال الرسائل لتجنب السباق
+            await update(gameRef, { countdownMessagesSent: true });
+
             initiatedCountdownGameId = localGameState.lastGameId; // وضع علامة على هذه الجولة
 
             // تسلسل العد التنازلي
@@ -502,13 +514,14 @@ onValue(gameRef, async (snapshot) => {
 
             // بعد العد التنازلي، أرسل الكلمات وحدث حالة اللعبة في Firebase
             sendBotMessage(` ${localGameState.gameWords.join(" ")}`);
-            const newGameStartTime = performance.now(); // 🔹 استخدام performance.now() للدقة
+            const newGameStartTime = Date.now(); // 🔹 استخدام Date.now() للدقة
             await set(gameRef, {
                 ...localGameState, // الاحتفاظ بالخصائص الأخرى
                 countdownActive: false, // انتهاء العد التنازلي
                 inProgress: true,      // اللعبة الآن نشطة
                 gameStartTime: newGameStartTime // 🔹 حفظ وقت البدء الدقيق
             });
+            localGameState.gameStartTime = newGameStartTime; // 💡 تحديث الحالة المحلية فورًا
         }
     } else if (!localGameState.inProgress && !localGameState.countdownActive) {
         // إذا لم تكن اللعبة قيد التقدم ولا يوجد عد تنازلي، أعد تعيين علامة المبادرة
@@ -554,7 +567,9 @@ async function handleMessageSend(text) {
                 gameWords: [],
                 gameStartTime: 0,
                 lastGameId: currentGameState.lastGameId,
-                wordCount: currentGameState.wordCount
+                wordCount: currentGameState.wordCount,
+                countdownMessagesSent: false, // 🆕 إعادة تعيين العلم عند إعادة الجولة
+                winnerAnnounced: false // 🆕 إعادة تعيين العلم عند إعادة الجولة
             });
             sendBotMessage("🔄 تم إعادة تعيين الجولة. يمكنكم البدء من جديد بالأمر 'طش'.");
         }
@@ -609,7 +624,9 @@ async function handleMessageSend(text) {
                     gameWords: gameWordsForThisRound, // استخدام الكلمات العشوائية لهذه الجولة
                     gameStartTime: 0,
                     lastGameId: new Date().getTime(), // معرف فريد لجولة اللعبة هذه
-                    wordCount: localGameState.wordCount // الحفاظ على عدد الكلمات
+                    wordCount: localGameState.wordCount, // الحفاظ على عدد الكلمات
+                    countdownMessagesSent: false, // 🆕 التأكد من أن هذا العلم خاطئ عند بدء عد تنازلي جديد
+                    winnerAnnounced: false // 🆕 التأكد من أن هذا العلم خاطئ عند بدء لعبة جديدة
                 });
             } else {
                 sendBotMessage("⚠️ لا توجد كلمات محفوظة. استخدم `طش` مع رقم أولاً (مثال: طش5).");
