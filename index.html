@@ -472,8 +472,8 @@ onValue(gameRef, async (snapshot) => {
 
     // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
     // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
-    // 💡 فقط العميل الذي بدأ اللعبة هو من يعلن الفائز لضمان دقة وقت البدء
-    if (!localGameState.inProgress && firebaseState.winnerInfo && localGameState.countdownInitiatorId === userId && !localGameState.winnerAnnounced) {
+    // 💡 أي عميل يمكنه إعلان الفائز لمنع التأخير وضمان الاستجابة الفورية.
+    if (!localGameState.inProgress && firebaseState.winnerInfo && !localGameState.winnerAnnounced) {
         const winnerData = firebaseState.winnerInfo;
 
         // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع التكرار
