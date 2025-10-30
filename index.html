@@ -623,8 +623,6 @@ async function handleMessageSend(text) {
         // إذا لم يكن أي من أوامر "طش"
     }
 }
-
-    // إذا لم يكن أمر "طش"، أو تم التعامل مع الأمر وإيقاف المعالجة، فهذه رسالة عادية
     push(messagesRef, {
         user: username,
         userId: userId, // التأكد من إرسال معرف المستخدم دائمًا
@@ -633,7 +631,7 @@ async function handleMessageSend(text) {
         time: new Date().toLocaleTimeString(),
         timestamp: Date.now()
     });
-}
+
 
 // 🏁 التحقق من إجابة لعبة السرعة
 
