@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -346,28 +345,6 @@ function sendBotMessage(text) {
   });
 }
 
-// 🏁 دالة للتحقق من الفائز في لعبة السرعة
-async function checkGameWinner(message) {
-    // تحقق مما إذا كانت اللعبة نشطة، والرسالة من مستخدم (ليست من البوت)، وهناك كلمات للعبة
-    if (localGameState.inProgress && message.userId !== "bot_id" && localGameState.gameWords.length > 0) {
-        const expectedText = localGameState.gameWords.join(" ");
-        
-        // إذا كانت الرسالة مطابقة للكلمات المطلوبة
-        if (message.text.trim() === expectedText) {
-            const timeTaken = (message.timestamp - localGameState.gameStartTime) / 1000; // بالثواني
-            const wordsPerMinute = Math.round((localGameState.gameWords.length / timeTaken) * 60);
-
-            // تحديث حالة اللعبة في Firebase لإعلان الفائز وإنهاء الجولة
-            // هذا يضمن أن أول شخص يرسل الإجابة الصحيحة هو الفائز الوحيد
-            await set(gameRef, {
-                ...localGameState,
-                inProgress: false, // إنهاء اللعبة
-                winnerInfo: { winnerName: message.user, wpm: wordsPerMinute, announced: false }
-            });
-        }
-    }
-}
-
 // 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
@@ -376,9 +353,6 @@ onChildAdded(messagesRef, snapshot=>{
 
   const m = snapshot.val();
   const messageKey = snapshot.key; // مفتاح الرسالة الفريد
-
-  // 🏁 التحقق مما إذا كانت هذه الرسالة هي الإجابة الفائزة
-  checkGameWinner(m);
 
   // 🤖 الرد على التحية
   // يتم التحقق فقط إذا كانت الرسالة ليست من البوت، والنص هو "السلام عليكم"، ولم يتم الرد عليها بعد
