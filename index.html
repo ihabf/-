@@ -479,9 +479,9 @@ onValue(gameRef, async (snapshot) => {
         // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع التكرار
         await update(gameRef, { winnerAnnounced: true });
 
-        // استخدام gameStartTime من الحالة المحلية للعميل البادئ لأنه الأكثر دقة
-        const timeDiffSeconds = (winnerData.time - localGameState.gameStartTime) / 1000;
-        // 🛡️ استخدام localGameState.gameWords بدلاً من firebaseState.gameWords
+        // 💡 استخدام gameStartTime من حالة Firebase مباشرة لضمان الدقة
+        const timeDiffSeconds = (winnerData.time - firebaseState.gameStartTime) / 1000;
+        // �️ استخدام localGameState.gameWords بدلاً من firebaseState.gameWords
         const totalChars = (localGameState.gameWords || []).join(" ").length;
         const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
 
