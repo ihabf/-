@@ -368,29 +368,22 @@ onChildAdded(messagesRef, snapshot=>{
 
   // 🏁 التحقق من الفائز في لعبة سرعة الكتابة
   // يتم التحقق فقط إذا كانت اللعبة قيد التقدم، الرسالة ليست من البوت، النص يطابق كلمات اللعبة، ووقت الرسالة بعد بدء اللعبة.
-  if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp > localGameState.gameStartTime) {
-    // فقط العميل الذي أرسل رسالة الفوز هو من يعلن النتيجة وينهي اللعبة
-    // 🔹 تم تغيير الشرط ليسمح لأي عميل بإنهاء اللعبة لزيادة الموثوقية
-    if (localGameState.inProgress) { // تحقق مرة أخرى للتأكد من أن اللعبة لم تنتهِ بالفعل
-      const endTime = m.timestamp; // استخدام الطابع الزمني للرسالة الفائزة
-      const timeDiffSeconds = (performance.now() - localGameState.gameStartTime) / 1000; // 🔹 استخدام performance.now() للدقة
-      const totalChars = localGameState.gameWords.join(" ").length;
-      const wpm = Math.round((totalChars / 5) / (timeDiffSeconds / 60)); // حساب WPM
-
-      // إعلان الفائز عبر البوت
-      sendBotMessage(`🏆 الفائز هو ${m.user} بسرعة ${wpm} كلمة في الدقيقة!`);
-
-      // إنهاء اللعبة في Firebase
-      set(gameRef, {
-          inProgress: false,
-          countdownActive: false,
-          countdownInitiatorId: null,
-          gameWords: [],
-          gameStartTime: 0,
-          lastGameId: localGameState.lastGameId, // الحفاظ على آخر ID لمنع إعادة التشغيل الخاطئ
-          wordCount: localGameState.wordCount // الحفاظ على عدد الكلمات
-      });
-    }
+  if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp >= localGameState.gameStartTime) {
+    // إنهاء اللعبة في Firebase أولاً لمنع إعلانات الفوز المتعددة
+    // العميل الأول الذي ينجح في تحديث الحالة هو فقط من سيعلن الفائز
+    set(gameRef, {
+        inProgress: false, // أهم خطوة: إيقاف اللعبة فورًا
+        countdownActive: false,
+        countdownInitiatorId: null,
+        gameWords: [],
+        gameStartTime: 0,
+        lastGameId: localGameState.lastGameId,
+        wordCount: localGameState.wordCount,
+        winnerInfo: { // إضافة معلومات الفائز
+            user: m.user,
+            time: m.timestamp
+        }
+    });
   }
 
   // 🔽 عرض الرسائل الجديدة فقط في الشات
@@ -477,6 +470,20 @@ onValue(gameRef, async (snapshot) => {
         wordCount: firebaseState.wordCount || 5 // 🔹 قراءة عدد الكلمات من Firebase
     };
 
+    // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
+    // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
+    if (!localGameState.inProgress && firebaseState.winnerInfo) {
+        const winnerData = firebaseState.winnerInfo;
+        const timeDiffSeconds = (winnerData.time - firebaseState.gameStartTime) / 1000;
+        const totalChars = firebaseState.gameWords.join(" ").length;
+        const wpm = Math.round((totalChars / 5) / (timeDiffSeconds / 60));
+
+        // إعلان الفائز عبر البوت
+        sendBotMessage(`🏆 الفائز هو ${winnerData.user} بسرعة ${wpm} كلمة في الدقيقة!`);
+
+        // حذف معلومات الفائز من Firebase بعد إعلان النتيجة لمنع تكرار الإعلان عند إعادة تحميل الصفحة
+        update(gameRef, { winnerInfo: null });
+    }
     // منطق تشغيل العد التنازلي للعميل المحدد فقط
     if (localGameState.countdownActive && localGameState.countdownInitiatorId === userId) {
         // التحقق مما إذا كان هذا العميل قد بدأ العد التنازلي بالفعل لهذه الجولة
