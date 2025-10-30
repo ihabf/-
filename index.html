@@ -472,17 +472,17 @@ onValue(gameRef, async (snapshot) => {
 
     // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
     // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
-    // 💡 أي عميل يمكنه إعلان الفائز لمنع التأخير وضمان الاستجابة الفورية.
-    if (!localGameState.inProgress && firebaseState.winnerInfo && !localGameState.winnerAnnounced) {
+    // 💡 فقط العميل الذي بدأ اللعبة هو من يعلن الفائز لضمان دقة وقت البدء
+    if (!localGameState.inProgress && firebaseState.winnerInfo && localGameState.countdownInitiatorId === userId && !localGameState.winnerAnnounced) {
         const winnerData = firebaseState.winnerInfo;
 
         // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع التكرار
         await update(gameRef, { winnerAnnounced: true });
 
-        // 💡 استخدام gameStartTime من حالة Firebase مباشرة لضمان الدقة
-        const timeDiffSeconds = (winnerData.time - firebaseState.gameStartTime) / 1000;
-        // 🛡️ استخدام firebaseState.gameWords لضمان أن الكلمات صحيحة عند حساب السرعة
-        const totalChars = (firebaseState.gameWords || []).join(" ").length;
+        // استخدام gameStartTime من الحالة المحلية للعميل البادئ لأنه الأكثر دقة
+        const timeDiffSeconds = (winnerData.time - localGameState.gameStartTime) / 1000;
+        // 🛡️ استخدام localGameState.gameWords بدلاً من firebaseState.gameWords
+        const totalChars = (localGameState.gameWords || []).join(" ").length;
         const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
 
         // إعلان الفائز عبر البوت
@@ -607,7 +607,7 @@ async function handleMessageSend(text) {
         }
         // أمر "طش" فقط - لبدء اللعبة
         else if (text === "طش") {
-            if (BOT_WORDS_LIST.length > 0) {
+            if (savedBotWords.length > 0) {
             if (localGameState.wordCount > 0) {
                 // إرسال رسالة المستخدم "طش" أولاً
                 push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
