@@ -11,7 +11,7 @@ import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemo
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
+  apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE", // Keep your actual API key
   authDomain: "kelta-gmae.firebaseapp.com",
   databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
   projectId: "kelta-gmae",
@@ -42,19 +42,19 @@ let savedBotWords = JSON.parse(localStorage.getItem("savedBotWords")) || [];
 
 // 🏁 حالة اللعبة المحلية (تتم مزامنتها مع Firebase)
 let localGameState = {
-    inProgress: false,         // هل اللعبة جارية؟
-    countdownActive: false,    // هل العد التنازلي نشط؟
-    countdownInitiatorId: null,// معرف المستخدم الذي بدأ العد التنازلي
-    gameWords: [],             // الكلمات الحالية للعبة
-    gameStartTime: 0,          // وقت بدء اللعبة الفعلي (بعد العد التنازلي)
-    lastGameId: null           // معرف فريد لكل جولة لعبة لمنع التكرار
+    inProgress: false,         // Is the game in progress?
+    countdownActive: false,    // Is the countdown active?
+    countdownInitiatorId: null,// ID of the user who started the countdown
+    gameWords: [],             // Current words for the game
+    gameStartTime: 0,          // Actual game start time (after countdown)
+    lastGameId: null           // Unique ID for each game round to prevent duplicates
 };
 
 // 🚩 متغير محلي لتتبع ما إذا كان هذا العميل قد بدأ العد التنازلي لجولة معينة
 // هذا يضمن أن عميلًا واحدًا فقط يقوم بتشغيل العد التنازلي وإرسال الكلمات إلى Firebase
 let initiatedCountdownGameId = null;
 
-// 🔹 إنشاء معرف فريد للجهاز
+// 🔹 Create a unique device ID
 let deviceId = localStorage.getItem("chat_device_id") || "dev_" + Math.floor(Math.random()*1e9);
 localStorage.setItem("chat_device_id", deviceId);
 
@@ -86,7 +86,7 @@ const userColor = colors[Math.floor(Math.random()*colors.length)];
 await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
 
 // 🔹 إنشاء المستخدم
-const userId = "user_"+Math.floor(Math.random()*1e9); // معرف فريد للمستخدم الحالي
+const userId = "user_"+Math.floor(Math.random()*1e9); // Unique ID for the current user
 const userRef = ref(db, "users/"+userId);
 function isMobileDevice() {
     return /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -96,14 +96,14 @@ await set(userRef, { name: username, color: userColor, online: true, lastSeen: D
 onDisconnect(userRef).remove();
 setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
-// عناصر الصفحة
+// Page elements
 const chatBox=document.getElementById("chat");
 const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 
-// 🔹 صوت نقرة هادئة (مولد صوتي صغير عبر Web Audio)
+// 🔹 Quiet click sound (small audio generator via Web Audio)
 let audioEnabled = false;
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 const audioCtx = new (AudioCtx)();
@@ -112,7 +112,7 @@ document.addEventListener('click', ()=>{
   if(audioCtx.state === 'suspended') audioCtx.resume();
 }, {once: true});
 
-// مولد نقرة قصيرة هادئة (ضوضاء مشطوفة)
+// Short quiet click generator (clipped noise)
 function playClickNoise({volume = 0.05, duration = 0.018} = {}){
   if(!audioEnabled) return;
   try{
@@ -134,7 +134,7 @@ function playClickNoise({volume = 0.05, duration = 0.018} = {}){
   }catch(e){ /* silent failure */ }
 }
 
-// مولد نغمة قصيرة (لتمييز الخروج)
+// Short beep generator (to distinguish exit)
 function playBeep({freq = 700, volume = 0.04, duration = 0.06} = {}){
   if(!audioEnabled) return;
   try{
@@ -154,11 +154,11 @@ function playBeep({freq = 700, volume = 0.04, duration = 0.06} = {}){
   }catch(e){ /* silent failure */ }
 }
 
-// دوال مريحة للاستخدام في الانضمام/المغادرة
+// Convenient functions for join/leave
 const playJoin = ()=> playClickNoise({volume:1, duration:0.018});
 const playLeave = ()=> playBeep({freq:560, volume:1, duration:0.06});
 
-// 🔹 عرض المستخدمين مع حالة الكتابة
+// 🔹 Display users with typing status
 function renderUsers(users, typingUsers){
   userList.innerHTML = "";
 
@@ -170,7 +170,7 @@ function renderUsers(users, typingUsers){
   userList.appendChild(botLi);
 
 
-  // إضافة المستخدمين الحقيقيين
+  // Add real users
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
     let typingAnim = "";
@@ -184,7 +184,7 @@ function renderUsers(users, typingUsers){
   });
 }
 
-// 🔹 استقبال المستخدمين والكتابة الحية
+// 🔹 Receive users and live typing
 let currentUsers = {};
 let currentTyping = {};
 onValue(usersRef, snapshot=>{
@@ -192,7 +192,7 @@ onValue(usersRef, snapshot=>{
   renderUsers(currentUsers, currentTyping);
 });
 
-// 🔹 إشعار عند دخول وخروج المستخدمين
+// 🔹 Notification on user join/leave
 onChildAdded(usersRef, snapshot=>{
   const u = snapshot.val();
   if(u.name !== username){
@@ -219,19 +219,19 @@ onChildRemoved(usersRef, snapshot=>{
   if(audioEnabled) playLeave();
 });
 
-// 🤖 دالة لإرسال رسالة من البوت
+// 🤖 Function to send a message from the bot
 function sendBotMessage(text) {
   push(messagesRef, {
     user: BOT_NAME,
     color: BOT_COLOR,
-    userId: "bot_id", // معرف خاص بالبوت
+    userId: "bot_id", // Special ID for the bot
     text: text,
-    time: new Date().toLocaleTimeString(), // للعرض
-    timestamp: Date.now() // للطوابع الزمنية الدقيقة (لعبة السرعة)
+    time: new Date().toLocaleTimeString(), // For display
+    timestamp: Date.now() // For precise timestamps (speed game)
   });
 }
 
-// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
+// 🔹 Receive new messages only after user has joined
 let firstLoad = true;
 onChildAdded(messagesRef, snapshot=>{
   if(firstLoad) return; // تجاهل الرسائل القديمة عند التحميل الأولي
@@ -239,7 +239,7 @@ onChildAdded(messagesRef, snapshot=>{
 
   // 🤖 الرد على التحية
   if (m.userId !== "bot_id" && m.text.trim() === "السلام عليكم") {
-    // تأخير بسيط لجعل الرد يبدو طبيعيًا
+    // A short delay to make the reply seem natural
     setTimeout(() => {
         sendBotMessage(`وعليكم السلام يا ${m.user} منوووووووووووووووووووووووووووووووووووور 🥳🎉👋`);
     }, 500);
@@ -249,12 +249,12 @@ onChildAdded(messagesRef, snapshot=>{
   // يتم التحقق فقط إذا كانت اللعبة قيد التقدم، الرسالة ليست من البوت، النص يطابق كلمات اللعبة، ووقت الرسالة بعد بدء اللعبة.
   if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp > localGameState.gameStartTime) {
     const endTime = m.timestamp; // استخدام الطابع الزمني للرسالة الفائزة
-    const timeDiffSeconds = (endTime - localGameState.gameStartTime) / 1000;
+    const timeDiffSeconds = Math.max(0.1, (endTime - localGameState.gameStartTime) / 1000); // Prevent division by zero
     const totalChars = localGameState.gameWords.join(" ").length;
     const wpm = Math.round((totalChars / 5) / (timeDiffSeconds / 60)); // حساب WPM
 
     // إعلان الفائز عبر البوت
-    sendBotMessage(`🏆 الفائز هو ${m.user} بسرعة ${wpm} كلمة في الدقيقة!`);
+    sendBotMessage(`🏆 الفائز هو ${m.user} بسرعة ${wpm} كلمة في الدقيقة! (${timeDiffSeconds.toFixed(2)} ثانية)`);
     
     // إنهاء اللعبة في Firebase
     set(gameRef, {
@@ -269,7 +269,7 @@ onChildAdded(messagesRef, snapshot=>{
   }
 
   // 🔽 الكود التالي لعرض الرسائل العادية في الشات
-  // إنشاء الحاوية
+  // Create the container
   const msgContainer = document.createElement("div");
   msgContainer.classList.add("message");
 
@@ -351,7 +351,7 @@ onValue(gameRef, async (snapshot) => {
         lastGameId: firebaseState.lastGameId || null
     };
 
-    // منطق تشغيل العد التنازلي للعميل المحدد فقط
+    // Logic to run the countdown for the designated client only
     if (localGameState.countdownActive && localGameState.countdownInitiatorId === userId) {
         // التحقق مما إذا كان هذا العميل قد بدأ العد التنازلي بالفعل لهذه الجولة
         if (initiatedCountdownGameId !== localGameState.lastGameId) {
@@ -396,7 +396,7 @@ function shuffleArray(array) {
     return array;
 }
 
-// 🔹 دالة مساعدة لإرسال الرسائل ومعالجة أوامر البوت
+// 🔹 Helper function to send messages and handle bot commands
 async function handleMessageSend(text) {
     if(!text) return;
 
@@ -422,17 +422,6 @@ async function handleMessageSend(text) {
 
     // 🤖 معالجة أوامر البوت "طش"
     if (text.startsWith("طش")) {
-        const currentGameStateSnapshot = await get(gameRef); // الحصول على أحدث حالة للعبة من Firebase
-        const currentGameState = currentGameStateSnapshot.val() || {};
-
-        // إذا كانت اللعبة جارية بالفعل أو العد التنازلي نشط
-        if (currentGameState.inProgress || currentGameState.countdownActive) {
-            sendBotMessage("لعبة سرعة الكتابة جارية بالفعل. انتظر حتى تنتهي الجولة الحالية.");
-            // لا يزال يتم إرسال رسالة المستخدم "طش" ليراها الجميع
-            push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
-            return; // إيقاف المزيد من المعالجة لهذا الأمر
-        }
-
         // أمر "طش" مع رقم (مثال: طش7) - لحفظ الكلمات
         if (text.match(/^طش(\d+)$/)) {
             const numberMatch = text.match(/^طش(\d+)$/);
@@ -449,26 +438,39 @@ async function handleMessageSend(text) {
         }
         // أمر "طش" فقط - لبدء اللعبة
         else if (text === "طش") {
-            if (savedBotWords.length > 0) {
-                // إرسال رسالة المستخدم "طش" أولاً
-                push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
+            // إرسال رسالة المستخدم "طش" أولاً
+            push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
+
+            // استخدام transaction لبدء اللعبة لمنع حالات السباق
+            const { committed } = await runTransaction(gameRef, (currentData) => {
+                // إذا كانت اللعبة جارية بالفعل أو العد التنازلي نشط، لا تفعل شيئًا
+                if (currentData && (currentData.inProgress || currentData.countdownActive)) {
+                    return; // Abort transaction
+                }
+
+                // إذا لم يتم حفظ كلمات، لا تبدأ اللعبة
+                if (savedBotWords.length === 0) {
+                    sendBotMessage("⚠️ لا توجد كلمات محفوظة. استخدم `طش` مع رقم أولاً (مثال: طش5).");
+                    return currentData; // Return original data to not change it
+                }
 
                 // 🌪️ خلط الكلمات واختيار مجموعة عشوائية جديدة لكل جولة
-                const shuffledWords = shuffleArray([...BOT_WORDS_LIST]); // خلط نسخة من القائمة الكاملة
-                const gameWordsForThisRound = shuffledWords.slice(0, savedBotWords.length); // أخذ العدد المطلوب من الكلمات
+                const shuffledWords = shuffleArray([...BOT_WORDS_LIST]);
+                const gameWordsForThisRound = shuffledWords.slice(0, savedBotWords.length);
 
-                // تحديث حالة اللعبة في Firebase لبدء العد التنازلي
-                await set(gameRef, {
-                    inProgress: false, // ليست قيد التقدم بعد، العد التنازلي نشط
+                // تحديث حالة اللعبة لبدء العد التنازلي
+                return {
+                    inProgress: false,
                     countdownActive: true,
-                    countdownInitiatorId: userId, // هذا المستخدم بدأ العد التنازلي
-                    gameWords: gameWordsForThisRound, // استخدام الكلمات العشوائية لهذه الجولة
-                    gameStartTime: 0, // سيتم تعيينه بعد العد التنازلي
-                    lastGameId: new Date().getTime() // معرف فريد لجولة اللعبة هذه
-                });
-            } else {
-                sendBotMessage("⚠️ لا توجد كلمات محفوظة. استخدم `طش` مع رقم أولاً (مثال: طش5).");
-                push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
+                    countdownInitiatorId: userId,
+                    gameWords: gameWordsForThisRound,
+                    gameStartTime: 0,
+                    lastGameId: new Date().getTime()
+                };
+            });
+
+            if (!committed) {
+                sendBotMessage("لعبة سرعة الكتابة جارية بالفعل. انتظر حتى تنتهي الجولة الحالية.");
             }
             return; // إيقاف المزيد من المعالجة
         }
