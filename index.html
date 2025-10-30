@@ -4,11 +4,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>💬 KeltA</title>
+<title>💬 دردشة مؤقتة</title>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -133,12 +133,6 @@ try {
 
 // 🔹 دالة لإنشاء أو إعادة إنشاء المستخدم في قاعدة البيانات
 async function registerUserPresence() {
-    // 🔹 إعادة جلب البيانات المحفوظة لضمان عدم فقدانها عند إعادة الاتصال
-    const savedDataSnapshot = await get(ref(db, `savedUsers/${username}`));
-    if (savedDataSnapshot.exists()) {
-        const savedData = savedDataSnapshot.val();
-        userColor = savedData.color || userColor; // استرجاع اللون
-    }
     const userRecord = {
         name: username,
         color: userColor,
@@ -374,33 +368,30 @@ onChildAdded(messagesRef, snapshot=>{
 
   // 🏁 التحقق من الفائز في لعبة سرعة الكتابة
   // يتم التحقق فقط إذا كانت اللعبة قيد التقدم، الرسالة ليست من البوت، النص يطابق كلمات اللعبة، ووقت الرسالة بعد بدء اللعبة.
-  if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp >= localGameState.gameStartTime) {
-    // 🔹 استخدام معاملة (Transaction) لضمان إعلان فائز واحد فقط
-    runTransaction(gameRef, (currentData) => {
-        // إذا كانت اللعبة لا تزال جارية في قاعدة البيانات
-        if (currentData && currentData.inProgress) {
-            // هذا العميل هو من سيعلن الفوز. قم بإنهاء اللعبة.
-            const timeDiffSeconds = (m.timestamp - currentData.gameStartTime) / 1000;
-            const totalChars = currentData.gameWords.join(" ").length;
-            const wpm = Math.round((totalChars / 5) / (timeDiffSeconds / 60));
+  if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp > localGameState.gameStartTime) {
+    // فقط العميل الذي أرسل رسالة الفوز هو من يعلن النتيجة وينهي اللعبة
+    // 🔹 تم تغيير الشرط ليسمح لأي عميل بإنهاء اللعبة لزيادة الموثوقية
+    if (localGameState.inProgress) { // تحقق مرة أخرى للتأكد من أن اللعبة لم تنتهِ بالفعل
+      const endTime = m.timestamp; // استخدام الطابع الزمني للرسالة الفائزة
+      const timeDiffSeconds = (performance.now() - localGameState.gameStartTime) / 1000; // 🔹 استخدام performance.now() للدقة
+      const totalChars = localGameState.gameWords.join(" ").length;
+      const wpm = Math.round((totalChars / 5) / (timeDiffSeconds / 60)); // حساب WPM
 
-            // تحديث حالة اللعبة مع معلومات الفائز
-            currentData.inProgress = false;
-            currentData.winner = m.user;
-            currentData.wpm = wpm;
-            return currentData; // حفظ الحالة الجديدة
-        }
-        // إذا كانت اللعبة قد انتهت بالفعل، قم بإلغاء المعاملة
-        return;
-    }).then(result => {
-        // إذا نجحت المعاملة (أي أن هذا العميل هو من أنهى اللعبة)
-        if (result.committed) {
-            const finalState = result.snapshot.val();
-            // إعلان الفائز بالسرعة الموحدة من قاعدة البيانات
-            sendBotMessage(`🏆 الفائز هو ${finalState.winner} بسرعة ${finalState.wpm} كلمة في الدقيقة!`);
-        }
+      // إعلان الفائز عبر البوت
+      sendBotMessage(`🏆 الفائز هو ${m.user} بسرعة ${wpm} كلمة في الدقيقة!`);
+
+      // إنهاء اللعبة في Firebase
+      set(gameRef, {
+          inProgress: false,
+          countdownActive: false,
+          countdownInitiatorId: null,
+          gameWords: [],
+          gameStartTime: 0,
+          lastGameId: localGameState.lastGameId, // الحفاظ على آخر ID لمنع إعادة التشغيل الخاطئ
+          wordCount: localGameState.wordCount // الحفاظ على عدد الكلمات
+      });
     }
-  });
+  }
 
   // 🔽 عرض الرسائل الجديدة فقط في الشات
   // إنشاء الحاوية
