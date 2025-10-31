@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -11,7 +12,7 @@ import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemo
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE", // Keep your actual API key
+  apiKey: "AIzaSyDzGM7Zy6JIrFJyDj7s5SjAd-l8rbCe9VE",
   authDomain: "kelta-gmae.firebaseapp.com",
   databaseURL: "https://kelta-gmae-default-rtdb.firebaseio.com",
   projectId: "kelta-gmae",
@@ -29,6 +30,7 @@ const messagesRef = ref(db, "messages");
 const typingRef = ref(db, "typing");
 const gameRef = ref(db, "game_state"); // 🏁 عقدة جديدة لحالة اللعبة
 const savedUsersRef = ref(db, "savedUsers");
+const kickSignalRef = ref(db, "kick_signals"); // 🚫 عقدة جديدة لإشارات الطرد
 
 const ADMIN_NAME = "KeltA";
 
@@ -38,23 +40,31 @@ const BOT_COLOR = "#f30217"; // ✨ هذا هو اللون الذي سيظهر �
 const BOT_AVATAR_COLOR = "red"; // لون مربع الأفاتار في قائمة المتصلين
 const BOT_AVATAR_URL = "https://i.pinimg.com/736x/2a/0d/77/2a0d77e1bf6d19ab336921683544bb35.jpg"; // ✨ ضع رابط صورة البوت هنا
 const BOT_WORDS_LIST = ["قلب","رمح","عشب","صندوق","حبل","اشارةمرور","ثعلب","يضحك","قنفذ","علم","بقرة","كلب","شبح","قنبلة","نعامة","سجق","ديك","قطايف","روبوت","عشب","بطة","يمشي","ابرة","ذئب","نافذة","فرشة","صحن","بطريق","ملك","سكر","برجايفل","مزرعة","ملفوف","روبيان","مكة","مندي","ثلج","ذبابة","طاولة","ميكانيكي","جدار","ايسكريم","سكين","ماعز","كرةسلة","بطاطا","ملك","اصبع","سروال","بصل","سلك","سائق","طماطم","كنافة","اذن","جوال","نمر","طاووس","ثور","خوخ","توصيلة","قمر","شارع","منسف","مانجو","دم","ماء","طيار","عود","باص","جزيرة","تاج","عصا","تمساح","قدم","بيض","حزين","فأس","هاتف","حوت","روبيان","ظفر","قفل","ساعة","عسل","جوزالهند","كنب","عصفور","فطر","قطه","مخدة","شاورما","توت","مسطرة","فراولة","هدهد","قرد","زهرة","ذرة","مكتب","دولاب","فيش","فشار","سماء","يسبح","فيل","تنين","شريط","ذهب","الارض","بروكلي","غيوم","شوكولاته","برجر","فلوس","وحيدالقرن","فانوس","سنجاب","ملعقة","ملعقة","خريطة","صرصور","منديل","كاتشب","مصاصة","دبقطبي","نيزك","رمان","شارع","عقرب","حمار","عصفور","تلفاز","حفرة","نار","حقيبة","طاوله","كرةقدم","درع","دب","بقلاوة","اناناس","سرير","زيتون","غوريلا","سلم","شاحنة","مسجد","عصا","بركان","قدم","قوس","شطرنج","تاج","عاملنظافة","غسالة","منشار","حوت","مسدس","باب","دمية","جاموس","عائلة","ليل","حذاء","زرافة","طابعة","نمل","دولاب","خيار","شوربة","ستارة","كيس","ريموت","دباسة","سلطعون","باذنجان","مزهرية","مخدة","سيف","مكتبة","ورقة","مكتب","فستان","مشمش","كوب","كشري","سلحفاة","حليب","مجرة","نسر","غواصة","خشب","نظارة","افوكادو","قارب","بيانو","ذرة","مسرح","شنب","اسنان","انف","مروحة","قهوة","فقمة","سرير","حديقة","بلياردو","ساعةرملية","نهر","قنفذ","فول","فلاشة","مصباح","لسان","سيارة","قلمرصاص","سمكة","كوكيز","طائرة","ضفدع","كاميرا","تمر","خشب","شراب","عين","كوالا","زر","بامية","ضبع","يبكي","غراب","خبز","مسمار","موية","نخلة","كرز","بيتزا","شوكة","دكتور","مرآة","مايك","طريق","مغني","غابة","جبل","هيكلعظمي","بحر","مظلة","كبة","لاعب","خس","ساعة","برجخليفة","جزر","وسادة","خيمة","خياط","سبانخ","رقص","دجاج","صيدلي","اطفائي","كبسة","كيبورد","طاولة","سجاده","محفظة","خنزير","كرة","عنب","شاشة","قاضي","ذئب","شجرة","شاي","نعال","نجوم","فراخ","فلفل","نحلة","شامبو","خفاش","كنز","قوسقزح","اصبع","اخطبوط","محاسب","كتاب","طباخ","برق","غزال","خاتم","عظم","فطيرة","دفتر","ببغاء","جمل","طريق","برتقال","حماروحشي","زبالة","الماس","كرة","غرفة","ستيك","حلاوة","نقانق","دودة","ملعب","كرةسلة","ممثل","زيت","كنبة","كتاب","مدرسة","الماس","الكعبة","يضحك","مكياج","بسكوت","سمبوسة","شاحن","جبن","شمام","مذيع","صحراء","فرشاة","حمام","بومة","سيف","ليل","موز","صبار","وحش","جاكيت","جوافة","بطارية","شمعة","ليمون","جوهرة","معدة","شاطئ","باندا","دونات","فراشة","ارنب","اسد","سفينة","عصير","نجوم","ولاعة","مكرونة","ثوب","سكين","قدر","تبولة","بطيخ","وسادة","ابرة","سوشي","صاروخ","جالس","سماعة","شرطي","مكيف","قطة","مقلوبة","مقص","دجاجمشوي","فأس","فرسالنهر","طبل","يركض","مكنسة","قلمرصاص","حاجب","اعصار","كوخ","شوكة","مطر","فهد","قبعة","ثعبان","رسام","غيوم","حمص","يد","عنكبوت","برياني","سحلية","لحم","وردة","مطعم","جرس","سبورة","بطن","قارورة","سينما","مهندس","عطر","ورقعنب","معلم","ممرضة","سلم","مطر","عصا","كريب","برق","قطار","كباب","طفل","شلال","يبكي","سلطة","سجادة","مشط","قبعة","خلاط","نوم","شتاء","حزين","ليل","ثلاجة","كهربائي","كأس","شاي","جامعة","برج","تفاح","عشب","بطه","جمجمة","كرسي","بطاطس","بسكوت","مكنسة","كيك","افوكادو","صابون","قمر","هرم","ساعةيد","كوكب","لابتوب","شنطة","عمارة","بيت","ديناصور","فرن","رز","مفتاح","رموش","جوارب","مدينة","قلم","سلة","حصان","زومبي","نجمة","علبة","مطبخ","فاصوليا","قهوة","كمبيوتر","ملوخية","قميص","مرحاض","فم","صقر","طاوله"]; // قائمة كلمات قابلة للتعديل
-let savedBotWords = JSON.parse(localStorage.getItem("savedBotWords")) || [];
 
-// 🏁 حالة اللعبة المحلية (تتم مزامنتها مع Firebase)
-let localGameState = {
-    inProgress: false,         // Is the game in progress?
-    countdownActive: false,    // Is the countdown active?
-    countdownInitiatorId: null,// ID of the user who started the countdown
-    gameWords: [],             // Current words for the game
-    gameStartTime: 0,          // Actual game start time (after countdown)
-    lastGameId: null           // Unique ID for each game round to prevent duplicates
+// 🔹 منع تعدد الجلسات (التبويبات)
+const channel = new BroadcastChannel('chat_session_channel');
+let isPrimaryTab = false;
+
+window.addEventListener('load', () => {
+    // إرسال إشعار بأن هذا التبويب موجود
+    channel.postMessage('new_tab_opened');
+});
+
+channel.onmessage = (event) => {
+    if (event.data === 'new_tab_opened' && !isPrimaryTab) {
+        // تبويب آخر كان موجودًا قبلي، إذن هذا التبويب مكرر
+        document.body.innerHTML = `<div style="text-align: center; padding: 50px; font-size: 1.5em; color: #ff6b6b;">
+            <h1>🚫 جلسة مكررة</h1>
+            <p>يمكن فتح الدردشة في تبويب واحد فقط في كل مرة.</p>
+        </div>`;
+        // إيقاف جميع الاتصالات والعمليات
+        channel.close();
+        throw new Error("Duplicate tab detected. Halting script execution.");
+    }
 };
+isPrimaryTab = true; // هذا التبويب هو الأساسي
 
-// 🚩 متغير محلي لتتبع ما إذا كان هذا العميل قد بدأ العد التنازلي لجولة معينة
-// هذا يضمن أن عميلًا واحدًا فقط يقوم بتشغيل العد التنازلي وإرسال الكلمات إلى Firebase
-let initiatedCountdownGameId = null;
-
-// 🔹 Create a unique device ID
+// 🔹 إنشاء معرف فريد للجهاز
 let deviceId = localStorage.getItem("chat_device_id") || "dev_" + Math.floor(Math.random()*1e9);
 localStorage.setItem("chat_device_id", deviceId);
 
@@ -86,24 +96,56 @@ const userColor = colors[Math.floor(Math.random()*colors.length)];
 await set(ref(db, "savedUsers/"+username), {color:userColor, deviceId});
 
 // 🔹 إنشاء المستخدم
-const userId = "user_"+Math.floor(Math.random()*1e9); // Unique ID for the current user
+// 🔹 استخدام userId من localStorage لمنع الاستنساخ عند التحديث
+let userId = localStorage.getItem("chat_userId") || "user_" + Math.floor(Math.random() * 1e9);
+localStorage.setItem("chat_userId", userId);
 const userRef = ref(db, "users/"+userId);
 function isMobileDevice() {
     return /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 const deviceType = isMobileDevice() ? 'mobile' : 'desktop';
-await set(userRef, { name: username, color: userColor, online: true, lastSeen: Date.now(), device: deviceType });
-onDisconnect(userRef).remove();
-setInterval(()=>update(userRef,{online:true,lastSeen:Date.now()}),5000);
 
-// Page elements
+// 🔹 جلب IP المستخدم وتخزينه
+let userIP = "N/A"; // قيمة افتراضية في حال فشل الجلب
+try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+    userIP = data.ip;
+} catch (error) {
+    console.error("Failed to fetch IP address:", error);
+}
+
+// 🔹 دالة لإنشاء أو إعادة إنشاء المستخدم في قاعدة البيانات
+async function registerUserPresence() {
+    const userRecord = {
+        name: username,
+        color: userColor,
+        online: true,
+        lastSeen: Date.now(),
+        device: deviceType,
+        ip: userIP,
+        deviceId: deviceId
+    };
+    // قم بإلغاء أي عمليات onDisconnect قديمة قبل تعيين واحدة جديدة
+    await onDisconnect(userRef).cancel();
+    // قم بتعيين بيانات المستخدم وأمر الحذف عند الانقطاع
+    await set(userRef, userRecord);
+    onDisconnect(userRef).remove();
+}
+
+// قم بتسجيل المستخدم عند التحميل الأولي
+await registerUserPresence();
+// قم بتحديث حالة "متصل" كل 5 ثوانٍ
+setInterval(() => update(userRef, { online: true, lastSeen: Date.now() }), 5000);
+
+// عناصر الصفحة
 const chatBox=document.getElementById("chat");
 const form=document.getElementById("chatForm");
 const msgInput=document.getElementById("msg");
 const typingBox=document.getElementById("typing");
 const userList=document.getElementById("users");
 
-// 🔹 Quiet click sound (small audio generator via Web Audio)
+// 🔹 صوت نقرة هادئة (مولد صوتي صغير عبر Web Audio)
 let audioEnabled = false;
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 const audioCtx = new (AudioCtx)();
@@ -112,7 +154,7 @@ document.addEventListener('click', ()=>{
   if(audioCtx.state === 'suspended') audioCtx.resume();
 }, {once: true});
 
-// Short quiet click generator (clipped noise)
+// مولد نقرة قصيرة هادئة (ضوضاء مشطوفة)
 function playClickNoise({volume = 0.05, duration = 0.018} = {}){
   if(!audioEnabled) return;
   try{
@@ -134,7 +176,7 @@ function playClickNoise({volume = 0.05, duration = 0.018} = {}){
   }catch(e){ /* silent failure */ }
 }
 
-// Short beep generator (to distinguish exit)
+// مولد نغمة قصيرة (لتمييز الخروج)
 function playBeep({freq = 700, volume = 0.04, duration = 0.06} = {}){
   if(!audioEnabled) return;
   try{
@@ -154,11 +196,11 @@ function playBeep({freq = 700, volume = 0.04, duration = 0.06} = {}){
   }catch(e){ /* silent failure */ }
 }
 
-// Convenient functions for join/leave
+// دوال مريحة للاستخدام في الانضمام/المغادرة
 const playJoin = ()=> playClickNoise({volume:1, duration:0.018});
 const playLeave = ()=> playBeep({freq:560, volume:1, duration:0.06});
 
-// 🔹 Display users with typing status
+// 🔹 عرض المستخدمين مع حالة الكتابة
 function renderUsers(users, typingUsers){
   userList.innerHTML = "";
 
@@ -170,7 +212,7 @@ function renderUsers(users, typingUsers){
   userList.appendChild(botLi);
 
 
-  // Add real users
+  // إضافة المستخدمين الحقيقيين
   Object.entries(users).forEach(([id,u])=>{
     const li = document.createElement("li");
     let typingAnim = "";
@@ -178,13 +220,44 @@ function renderUsers(users, typingUsers){
       typingAnim = `<span class="dots">…</span>`;
     }
     const deviceEmoji = u.device === 'mobile' ? '📱' : '💻';
-    li.innerHTML = `${deviceEmoji} ${u.name} ${typingAnim}`;
+    // 🔹 عرض IP للمدير فقط
+    let userDetails = `${deviceEmoji} ${u.name} ${typingAnim}`;
+    if (username === ADMIN_NAME && u.ip) {
+        userDetails += ` <span style="color: #ffcc00; font-size: 0.8em;">(${u.ip})</span>`;
+    }
+    li.innerHTML = userDetails;
     li.style.borderRight = `6px solid ${u.color}`;
+
+    // 🚫 إضافة زر الطرد للمدير فقط
+    if (username === ADMIN_NAME && u.name !== ADMIN_NAME) {
+        const kickButton = document.createElement("button");
+        kickButton.textContent = "🚫";
+        kickButton.className = "kick-button";
+
+        // التحقق من وجود deviceId لتفعيل الزر
+        if (u.deviceId) {
+            kickButton.title = `طرد المستخدم ${u.name}`;
+            kickButton.onclick = (e) => {
+                e.stopPropagation(); // منع أي أحداث نقر أخرى
+                if (confirm(`هل أنت متأكد من طرد ${u.name}؟`)) {
+                    const signalId = "kick_" + Date.now();
+                    set(ref(db, `kick_signals/${signalId}`), { targetDeviceId: u.deviceId });
+                    setTimeout(() => remove(ref(db, `kick_signals/${signalId}`)), 5000);
+                }
+            };
+        } else {
+            // إذا لم يكن deviceId موجودًا، يتم تعطيل الزر
+            kickButton.disabled = true;
+            kickButton.title = `لا يمكن طرد ${u.name}، يحتاج لتحديث الصفحة.`;
+        }
+        li.appendChild(kickButton);
+    }
+
     userList.appendChild(li);
   });
 }
 
-// 🔹 Receive users and live typing
+// 🔹 استقبال المستخدمين والكتابة الحية
 let currentUsers = {};
 let currentTyping = {};
 onValue(usersRef, snapshot=>{
@@ -192,7 +265,7 @@ onValue(usersRef, snapshot=>{
   renderUsers(currentUsers, currentTyping);
 });
 
-// 🔹 Notification on user join/leave
+// 🔹 إشعار عند دخول وخروج المستخدمين
 onChildAdded(usersRef, snapshot=>{
   const u = snapshot.val();
   if(u.name !== username){
@@ -219,57 +292,86 @@ onChildRemoved(usersRef, snapshot=>{
   if(audioEnabled) playLeave();
 });
 
-// 🤖 Function to send a message from the bot
+// 🔹 معالجة إعادة الاتصال بعد الانقطاع
+onValue(ref(db, '.info/connected'), async (snapshot) => {
+    if (snapshot.val() === true) {
+        console.log("✅ تمت إعادة الاتصال بـ Firebase.");
+        // تحقق مما إذا كان المستخدم لا يزال موجودًا، إذا لم يكن كذلك، أعد تسجيله
+        const userSnapshot = await get(userRef);
+        if (!userSnapshot.exists()) {
+            console.log("⚠️ المستخدم غير موجود بعد إعادة الاتصال، سيتم إعادة تسجيله.");
+            await registerUserPresence();
+        }
+    }
+});
+
+// 🚫 الاستماع لإشارات الطرد
+onChildAdded(kickSignalRef, (snapshot) => {
+    const signal = snapshot.val();
+    // إذا كانت الإشارة تستهدف هذا الجهاز
+    if (signal && signal.targetDeviceId === deviceId) {
+        alert("لقد تم طردك من قبل المدير.");
+        window.location.reload();
+    }
+});
+
+// 🤖 دالة لإرسال رسالة من البوت
 function sendBotMessage(text) {
   push(messagesRef, {
     user: BOT_NAME,
     color: BOT_COLOR,
-    userId: "bot_id", // Special ID for the bot
+    userId: "bot_id", // معرف خاص بالبوت
     text: text,
-    time: new Date().toLocaleTimeString(), // For display
-    timestamp: Date.now() // For precise timestamps (speed game)
+    time: new Date().toLocaleTimeString(), // للعرض
+    timestamp: Date.now() // للطوابع الزمنية الدقيقة (لعبة السرعة)
   });
 }
 
-// 🔹 Receive new messages only after user has joined
+// 🔹 استقبال الرسائل الجديدة فقط بعد دخول المستخدم
 let firstLoad = true;
-onChildAdded(messagesRef, snapshot=>{
-  if(firstLoad) return; // تجاهل الرسائل القديمة عند التحميل الأولي
-  const m = snapshot.val();
+onChildAdded(messagesRef, async (snapshot) => {
+  // إذا كان هذا هو التحميل الأولي للصفحة، لا تعرض الرسائل القديمة.
+  if (firstLoad) return;
 
-  // 🤖 الرد على التحية
-  if (m.userId !== "bot_id" && m.text.trim() === "السلام عليكم") {
-    // A short delay to make the reply seem natural
-    setTimeout(() => {
-        sendBotMessage(`وعليكم السلام يا ${m.user} منوووووووووووووووووووووووووووووووووووور 🥳🎉👋`);
-    }, 500);
+  const m = snapshot.val();
+  const messageKey = snapshot.key; // مفتاح الرسالة الفريد
+
+  // 💡 جلب أحدث حالة للعبة لاتخاذ القرارات
+  const gameStateSnapshot = await get(gameRef);
+  const currentGameState = gameStateSnapshot.val() || {};
+  // يتم التحقق فقط إذا كانت الرسالة ليست من البوت، والنص هو "السلام عليكم"، ولم يتم الرد عليها بعد
+  if (m.userId !== "bot_id" && m.text.trim() === "السلام عليكم" && !m.replied) {
+    // فقط العميل الذي أرسل الرسالة الأصلية هو من يرد
+    if (m.userId === userId) {
+      // تأخير بسيط لجعل الرد يبدو طبيعيًا
+      setTimeout(() => {
+          sendBotMessage(`وعليكم السلام يا ${m.user} منوووووووووووووووووووووووووووووووووووور 🥳🎉👋`);
+      }, 500);
+    }
+    // وضع علامة على الرسالة الأصلية بأنه تم الرد عليها لمنع التكرار
+    update(ref(db, `messages/${messageKey}`), { replied: true });
   }
 
   // 🏁 التحقق من الفائز في لعبة سرعة الكتابة
-  // يتم التحقق فقط إذا كانت اللعبة قيد التقدم، الرسالة ليست من البوت، النص يطابق كلمات اللعبة، ووقت الرسالة بعد بدء اللعبة.
-  if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp > localGameState.gameStartTime) {
-    const endTime = m.timestamp; // استخدام الطابع الزمني للرسالة الفائزة
-    const timeDiffSeconds = Math.max(0.1, (endTime - localGameState.gameStartTime) / 1000); // Prevent division by zero
-    const totalChars = localGameState.gameWords.join(" ").length;
-    const wpm = Math.round((totalChars / 5) / (timeDiffSeconds / 60)); // حساب WPM
+  // 💡 يتم الآن التحقق مباشرة من حالة Firebase التي تم جلبها للتو
+  if (currentGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === (currentGameState.gameWords || []).join(" ")) {
+    // التأكد من أن وقت الرسالة أكبر من أو يساوي وقت بدء اللعبة الفعلي
+    if (m.timestamp < currentGameState.gameStartTime) return;
 
-    // إعلان الفائز عبر البوت
-    sendBotMessage(`🏆 الفائز هو ${m.user} بسرعة ${wpm} كلمة في الدقيقة! (${timeDiffSeconds.toFixed(2)} ثانية)`);
-    
-    // إنهاء اللعبة في Firebase
-    set(gameRef, {
-        inProgress: false,
+    // إنهاء اللعبة في Firebase أولاً لمنع إعلانات الفوز المتعددة
+    // العميل الأول الذي ينجح في تحديث الحالة هو فقط من سيعلن الفائز
+    update(gameRef, {
+        inProgress: false, // أهم خطوة: إيقاف اللعبة فورًا
         countdownActive: false,
-        countdownInitiatorId: null,
-        gameWords: [],
-        gameStartTime: 0,
-        lastGameId: null // إعادة تعيين معرف اللعبة
+        winnerInfo: { // إضافة معلومات الفائز
+            user: m.user,
+            time: m.timestamp
+        }
     });
-    // لا نستخدم `return` هنا للسماح بعرض رسالة الفوز بشكل طبيعي.
   }
 
-  // 🔽 الكود التالي لعرض الرسائل العادية في الشات
-  // Create the container
+  // 🔽 عرض الرسائل الجديدة فقط في الشات
+  // إنشاء الحاوية
   const msgContainer = document.createElement("div");
   msgContainer.classList.add("message");
 
@@ -341,44 +443,60 @@ onValue(messagesRef, snapshot => {
 onValue(gameRef, async (snapshot) => {
     const firebaseState = snapshot.val() || {};
 
-    // تحديث الحالة المحلية للعبة بناءً على Firebase
-    localGameState = {
-        inProgress: firebaseState.inProgress || false,
-        countdownActive: firebaseState.countdownActive || false,
-        countdownInitiatorId: firebaseState.countdownInitiatorId || null,
-        gameWords: firebaseState.gameWords || [],
-        gameStartTime: firebaseState.gameStartTime || 0,
-        lastGameId: firebaseState.lastGameId || null
-    };
+    //  التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
+    // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
+    // 💡 أي عميل يمكنه إعلان الفائز الآن، طالما لم يتم الإعلان عنه من قبل.
+    // 💡 يتم الآن استخدام `firebaseState` مباشرة لضمان الدقة
+    const { inProgress, winnerInfo, winnerAnnounced } = firebaseState;
 
-    // Logic to run the countdown for the designated client only
-    if (localGameState.countdownActive && localGameState.countdownInitiatorId === userId) {
-        // التحقق مما إذا كان هذا العميل قد بدأ العد التنازلي بالفعل لهذه الجولة
-        if (initiatedCountdownGameId !== localGameState.lastGameId) {
-            initiatedCountdownGameId = localGameState.lastGameId; // وضع علامة على هذه الجولة
+    if (!inProgress && winnerInfo && !winnerAnnounced) {
+        const winnerData = firebaseState.winnerInfo;
 
-            // تسلسل العد التنازلي
-            await new Promise(resolve => setTimeout(resolve, 500));
-            sendBotMessage("3...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            sendBotMessage("2...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            sendBotMessage("1...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع التكرار
+        // هذا يضمن أن عميل واحد فقط سينجح في تنفيذ هذا الجزء
+        await update(gameRef, { winnerAnnounced: true });
 
-            // بعد العد التنازلي، أرسل الكلمات وحدث حالة اللعبة في Firebase
-            sendBotMessage(` ${localGameState.gameWords.join(" ")}`);
-            const newGameStartTime = Date.now();
-            await set(gameRef, {
-                ...localGameState, // الاحتفاظ بالخصائص الأخرى
-                countdownActive: false, // انتهاء العد التنازلي
-                inProgress: true,      // اللعبة الآن نشطة
-                gameStartTime: newGameStartTime
-            });
-        }
-    } else if (!localGameState.inProgress && !localGameState.countdownActive) {
-        // إذا لم تكن اللعبة قيد التقدم ولا يوجد عد تنازلي، أعد تعيين علامة المبادرة
-        initiatedCountdownGameId = null;
+        // 🛡️ استخدام gameStartTime و gameWords من Firebase لضمان التوحيد للجميع
+        const timeDiffSeconds = (winnerData.time - firebaseState.gameStartTime) / 1000;
+        const totalChars = (firebaseState.gameWords || []).join(" ").length;
+        const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
+
+        // إعلان الفائز عبر البوت
+        sendBotMessage(`🏆 الفائز هو ${winnerData.user} بسرعة ${wpm} كلمة في الدقيقة!`);
+
+        // إعادة تعيين معلومات الفائز والكلمات بعد فترة قصيرة للسماح للجميع برؤية النتيجة
+        setTimeout(() => {
+            update(gameRef, { winnerInfo: null, gameWords: [] });
+        }, 2000);
+    }
+    // منطق تشغيل العد التنازلي للعميل المحدد فقط
+    // 🆕 إضافة شرط !localGameState.countdownMessagesSent لمنع تكرار رسائل العد التنازلي
+    // 💡 يتم الآن استخدام `firebaseState` مباشرة
+    const { countdownActive, countdownMessagesSent } = firebaseState;
+
+    // إذا كان العد التنازلي نشطًا ولم يتم إرسال الرسائل بعد، فإن هذا العميل سيبدأ العد التنازلي
+    if (countdownActive && !countdownMessagesSent) {
+        // 🆕 وضع علامة في Firebase بأن رسائل العد التنازلي قد أُرسلت لمنع التكرار
+        // هذا يضمن أن عميل واحد فقط سينجح في تنفيذ هذا الجزء
+        await update(gameRef, { countdownMessagesSent: true });
+
+        // تسلسل العد التنازلي
+        await new Promise(resolve => setTimeout(resolve, 500));
+        sendBotMessage("3...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        sendBotMessage("2...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        sendBotMessage("1...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // بعد العد التنازلي، أرسل الكلمات وحدث حالة اللعبة في Firebase
+        sendBotMessage(` ${(firebaseState.gameWords || []).join(" ")}`);
+        const newGameStartTime = Date.now(); // 🔹 استخدام Date.now() للدقة
+        await update(gameRef, {
+            countdownActive: false, // انتهاء العد التنازلي
+            inProgress: true,      // اللعبة الآن نشطة
+            gameStartTime: newGameStartTime // 🔹 حفظ وقت البدء الدقيق
+        });
     }
 });
 
@@ -396,7 +514,7 @@ function shuffleArray(array) {
     return array;
 }
 
-// 🔹 Helper function to send messages and handle bot commands
+// 🔹 دالة مساعدة لإرسال الرسائل ومعالجة أوامر البوت
 async function handleMessageSend(text) {
     if(!text) return;
 
@@ -409,12 +527,22 @@ async function handleMessageSend(text) {
     // 🔄 أمر "يلا" لإعادة تعيين الجولة
     if (text.trim() === "يلا") {
         const currentGameStateSnapshot = await get(gameRef);
-        // إعادة تعيين حالة اللعبة في Firebase بغض النظر عن حالتها الحالية
-        await set(gameRef, {
-            inProgress: false, countdownActive: false, countdownInitiatorId: null,
-            gameWords: [], gameStartTime: 0, lastGameId: null
-        });
-        sendBotMessage("🔄 تم إعادة تعيين الجولة. يمكنكم البدء من جديد بالأمر 'طش'.");
+        const currentGameState = currentGameStateSnapshot.val() || {};
+
+        if (currentGameState.inProgress || currentGameState.countdownActive) {
+            // إعادة تعيين حالة اللعبة في Firebase
+            await set(gameRef, {
+                inProgress: false,
+                countdownActive: false,
+                gameWords: [],
+                gameStartTime: 0,
+                lastGameId: currentGameState.lastGameId,
+                wordCount: currentGameState.wordCount,
+                countdownMessagesSent: false, // 🆕 إعادة تعيين العلم عند إعادة الجولة
+                winnerAnnounced: false // 🆕 إعادة تعيين العلم عند إعادة الجولة
+            });
+            sendBotMessage("🔄 تم إعادة تعيين الجولة. يمكنكم البدء من جديد بالأمر 'طش'.");
+        }
         // إرسال رسالة المستخدم "يلا" إلى الشات في كل الأحوال
         push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
         return; // إيقاف المزيد من المعالجة
@@ -422,59 +550,61 @@ async function handleMessageSend(text) {
 
     // 🤖 معالجة أوامر البوت "طش"
     if (text.startsWith("طش")) {
+        const currentGameStateSnapshot = await get(gameRef); // الحصول على أحدث حالة للعبة من Firebase
+        const currentGameState = currentGameStateSnapshot.val() || {};
+
+        // إذا كانت اللعبة جارية بالفعل أو العد التنازلي نشط
+        if (currentGameState.inProgress || currentGameState.countdownActive) {
+            sendBotMessage("لعبة سرعة الكتابة جارية بالفعل. انتظر حتى تنتهي الجولة الحالية.");
+            // لا يزال يتم إرسال رسالة المستخدم "طش" ليراها الجميع
+            push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
+            return; // إيقاف المزيد من المعالجة لهذا الأمر
+        }
+
         // أمر "طش" مع رقم (مثال: طش7) - لحفظ الكلمات
         if (text.match(/^طش(\d+)$/)) {
             const numberMatch = text.match(/^طش(\d+)$/);
             const count = parseInt(numberMatch[1], 10);
-            if (count > 0 && count <= BOT_WORDS_LIST.length) {
-                savedBotWords = BOT_WORDS_LIST.slice(0, count);
-                localStorage.setItem("savedBotWords", JSON.stringify(savedBotWords));
+            if (count > 0 && count <= 50) { // تحديد حد أقصى 50 كلمة
+                // 🔹 تحديث عدد الكلمات في Firebase مباشرة
+                await update(gameRef, { wordCount: count });
                 sendBotMessage(`✅ تم حفظ ${count} كلمات للجولة القادمة.`);
             } else {
-                sendBotMessage(`⚠️ يرجى تحديد عدد صحيح بين 1 و ${BOT_WORDS_LIST.length} لحفظ الكلمات.`);
+                sendBotMessage(`⚠️ يرجى تحديد عدد صحيح بين 1 و 50.`);
             }
             push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
             return; // إيقاف المزيد من المعالجة
         }
         // أمر "طش" فقط - لبدء اللعبة
         else if (text === "طش") {
-            // إرسال رسالة المستخدم "طش" أولاً
-            push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
-
-            // استخدام transaction لبدء اللعبة لمنع حالات السباق
-            const { committed } = await runTransaction(gameRef, (currentData) => {
-                // إذا كانت اللعبة جارية بالفعل أو العد التنازلي نشط، لا تفعل شيئًا
-                if (currentData && (currentData.inProgress || currentData.countdownActive)) {
-                    return; // Abort transaction
-                }
-
-                // إذا لم يتم حفظ كلمات، لا تبدأ اللعبة
-                if (savedBotWords.length === 0) {
-                    sendBotMessage("⚠️ لا توجد كلمات محفوظة. استخدم `طش` مع رقم أولاً (مثال: طش5).");
-                    return currentData; // Return original data to not change it
-                }
+            const wordCount = currentGameState.wordCount || 5; // قراءة العدد من الحالة الحالية أو استخدام القيمة الافتراضية
+            if (wordCount > 0) {
+                // إرسال رسالة المستخدم "طش" أولاً
+                push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
 
                 // 🌪️ خلط الكلمات واختيار مجموعة عشوائية جديدة لكل جولة
-                const shuffledWords = shuffleArray([...BOT_WORDS_LIST]);
-                const gameWordsForThisRound = shuffledWords.slice(0, savedBotWords.length);
+                const shuffledWords = shuffleArray([...BOT_WORDS_LIST]); // خلط نسخة من القائمة الكاملة
+                const gameWordsForThisRound = shuffledWords.slice(0, wordCount); // 🔹 استخدام العدد المشترك من Firebase
 
-                // تحديث حالة اللعبة لبدء العد التنازلي
-                return {
-                    inProgress: false,
-                    countdownActive: true,
-                    countdownInitiatorId: userId,
-                    gameWords: gameWordsForThisRound,
+                // تحديث حالة اللعبة في Firebase لبدء العد التنازلي
+                await update(gameRef, {
+                    inProgress: false, // ليست قيد التقدم بعد، العد التنازلي نشط
+                    countdownActive: true, // أي عميل يرى هذا سيبدأ العد التنازلي
+                    gameWords: gameWordsForThisRound, // استخدام الكلمات العشوائية لهذه الجولة
                     gameStartTime: 0,
-                    lastGameId: new Date().getTime()
-                };
-            });
-
-            if (!committed) {
-                sendBotMessage("لعبة سرعة الكتابة جارية بالفعل. انتظر حتى تنتهي الجولة الحالية.");
+                    lastGameId: Date.now(), // معرف فريد لجولة اللعبة هذه
+                    wordCount: wordCount,
+                    countdownMessagesSent: false, // 🆕 التأكد من أن هذا العلم خاطئ عند بدء عد تنازلي جديد
+                    winnerAnnounced: false // 🆕 التأكد من أن هذا العلم خاطئ عند بدء لعبة جديدة
+                });
+            } else {
+                sendBotMessage("⚠️ لا توجد كلمات محفوظة. استخدم `طش` مع رقم أولاً (مثال: طش5).");
+                push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
             }
             return; // إيقاف المزيد من المعالجة
         }
-    }
+    } // نهاية معالجة أمر "طش"
+
 
     // إذا لم يكن أمر "طش"، أو تم التعامل مع الأمر وإيقاف المعالجة، فهذه رسالة عادية
     push(messagesRef, {
@@ -707,6 +837,27 @@ button:hover {
   border-radius: 15px;
   font-size: 0.9em;
   transition: 0.15s;
+}
+
+/* 🚫 زر الطرد */
+.kick-button {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  cursor: pointer;
+  font-size: 1.1em;
+  padding: 0 5px;
+  margin-right: 5px; /* مسافة بين الزر والاسم */
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.kick-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.kick-button:hover {
+  opacity: 1;
 }
 
 /* 🔹 صورة الأفاتار في قائمة المتصلين */
