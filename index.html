@@ -607,16 +607,18 @@ async function handleMessageSend(text) {
         }
         // أمر "طش" فقط - لبدء اللعبة
         else if (text === "طش") {
-            if (savedBotWords.length > 0) {
-            if (localGameState.wordCount > 0) {
+            // 💡 جلب أحدث عدد للكلمات من Firebase مباشرة لضمان الدقة
+            const latestWordCount = (await get(ref(db, 'game_state/wordCount'))).val() || localGameState.wordCount;
+
+            if (latestWordCount > 0) {
                 // إرسال رسالة المستخدم "طش" أولاً
                 push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
 
                 // 🌪️ خلط الكلمات واختيار مجموعة عشوائية جديدة لكل جولة
                 const shuffledWords = shuffleArray([...BOT_WORDS_LIST]); // خلط نسخة من القائمة الكاملة
-                const gameWordsForThisRound = shuffledWords.slice(0, localGameState.wordCount); // 🔹 استخدام العدد المشترك من Firebase
+                const gameWordsForThisRound = shuffledWords.slice(0, latestWordCount); // 🔹 استخدام العدد المحدث من Firebase
 
-                // تحديث حالة اللعبة في Firebase لبدء العد التنازلي
+                // تحديث حالة اللعبة بالكامل في Firebase لبدء العد التنازلي
                 await set(gameRef, {
                     inProgress: false, // ليست قيد التقدم بعد، العد التنازلي نشط
                     countdownActive: true,
@@ -624,14 +626,13 @@ async function handleMessageSend(text) {
                     gameWords: gameWordsForThisRound, // استخدام الكلمات العشوائية لهذه الجولة
                     gameStartTime: 0,
                     lastGameId: new Date().getTime(), // معرف فريد لجولة اللعبة هذه
-                    wordCount: localGameState.wordCount, // الحفاظ على عدد الكلمات
+                    wordCount: latestWordCount, // الحفاظ على عدد الكلمات
                     countdownMessagesSent: false, // 🆕 التأكد من أن هذا العلم خاطئ عند بدء عد تنازلي جديد
                     winnerAnnounced: false // 🆕 التأكد من أن هذا العلم خاطئ عند بدء لعبة جديدة
                 });
             } else {
-                sendBotMessage("⚠️ لا توجد كلمات محفوظة. استخدم `طش` مع رقم أولاً (مثال: طش5).");
+                sendBotMessage(`⚠️ لم يتم تحديد عدد الكلمات بعد. استخدم أمراً مثل "طش5" أولاً.`);
                 push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
-            }
             return; // إيقاف المزيد من المعالجة
         }
     }
