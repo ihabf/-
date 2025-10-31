@@ -483,7 +483,7 @@ onValue(gameRef, async (snapshot) => {
 
         // بعد العد التنازلي, أرسل الكلمات وحدث حالة اللعبة في Firebase
         // 🆕 تكبير الخط وإزالة كلمة "اكتب"
-        sendBotMessage(`<h3 style="margin:0; padding: 5px;">${localGameState.gameWords.join(" ")}</h3>`);
+        sendBotMessage(`<h3 style="margin:0; padding: 5px; font-size: 1em;">${localGameState.gameWords.join("(.)")}</h3>`);
         await update(gameRef, {
             inProgress: true,
             gameStartTime: serverTimestamp()
@@ -541,7 +541,7 @@ async function handleMessageSend(text) {
     // يتم التحقق فقط إذا كانت اللعبة قيد التقدم، والرسالة تطابق كلمات اللعبة.
     const currentGameStateSnapshot = await get(gameRef);
     const currentGameState = currentGameStateSnapshot.val() || {};
-    if (currentGameState.inProgress && text.trim() === currentGameState.gameWords.join(" ")) {
+    if (currentGameState.inProgress && text.trim() === currentGameState.gameWords.join("(.)")) {
         // إنهاء اللعبة في Firebase وتعيين الفائز في عملية واحدة
         // هذا يضمن أن أول شخص يرسل الإجابة الصحيحة هو الفائز الوحيد
         await update(gameRef, {
@@ -925,4 +925,3 @@ button:hover {
 </div>
 </body>
 </html>
-
