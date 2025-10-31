@@ -8,7 +8,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -445,8 +445,13 @@ onValue(gameRef, async (snapshot) => {
     if (localGameState.winnerInfo) {
         const winnerData = localGameState.winnerInfo;
 
+        // ⏱️ حساب الفارق الزمني بدقة باستخدام التوقيت من الخادم
+        const timeDiffSeconds = (winnerData.time - localGameState.gameStartTime) / 1000;
+        const totalChars = localGameState.gameWords.join(" ").length;
+        const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : "∞";
+
         // إعلان الفائز عبر البوت
-        sendBotMessage(`🏆 الفائز هو ${winnerData.user}!`);
+        sendBotMessage(`🏆 الفائز هو ${winnerData.user} بسرعة ${wpm} ك/د!`);
 
         // إعادة تعيين حالة اللعبة بعد إعلان الفائز لمنع تكرار الإعلان
         // وللسماح بجولة جديدة.
@@ -515,7 +520,7 @@ async function handleMessageSend(text) {
             inProgress: false, // أهم خطوة: إيقاف اللعبة فورًا
             winnerInfo: {      // إضافة معلومات الفائز
                 user: username,
-                time: Date.now()
+                time: serverTimestamp() // ⏱️ استخدام توقيت الخادم
             }
         });
         // لا نرسل الرسالة هنا، لأنها سترسل في نهاية الدالة
@@ -555,7 +560,7 @@ async function handleMessageSend(text) {
                 await set(gameRef, {
                     inProgress: true,
                     gameWords: gameWordsForThisRound, // استخدام الكلمات العشوائية لهذه الجولة
-                    gameStartTime: Date.now(),
+                    gameStartTime: serverTimestamp(), // ⏱️ استخدام توقيت الخادم
                     wordCount: latestWordCount, // الحفاظ على عدد الكلمات
                     winnerInfo: null
                 });
