@@ -452,6 +452,19 @@ onValue(gameRef, async (snapshot) => {
         countdownMessagesSent: firebaseState.countdownMessagesSent || false, // 🆕 تحديث الحالة المحلية
         winnerAnnounced: firebaseState.winnerAnnounced || false // 🆕 تحديث الحالة المحلية
     };
+    // ✅ دالة تأكد أن gameStartTime جاهز قبل السماح بالحساب
+async function ensureGameStartTimeReady() {
+  const snapshot = await get(gameRef);
+  const data = snapshot.val() || {};
+  if (!data.gameStartTime || data.gameStartTime === 0) {
+    // 🔄 انتظر قليلاً لتأكيد المزامنة على الهواتف
+    await new Promise(r => setTimeout(r, 500));
+    const retry = (await get(gameRef)).val() || {};
+    return retry.gameStartTime || 0;
+  }
+  return data.gameStartTime;
+}
+
 
     // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
     // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
@@ -462,7 +475,7 @@ onValue(gameRef, async (snapshot) => {
         await update(gameRef, { winnerAnnounced: true });
 
         // 🛡️ استخدام gameStartTime و gameWords من Firebase مباشرة لضمان أن جميع العملاء يستخدمون نفس البيانات
-        const startTime = firebaseState.gameStartTime || 0;
+        const startTime = await ensureGameStartTimeReady();
         const timeDiffSeconds = (winnerData.time - startTime) / 1000;
         
         // 💡 استخدام كلمات اللعبة من `firebaseState` مباشرة لتجنب حالة السباق حيث قد يتم مسحها
