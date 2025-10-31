@@ -484,7 +484,8 @@ onValue(gameRef, async (snapshot) => {
         // بعد العد التنازلي, أرسل الكلمات وحدث حالة اللعبة في Firebase
         // 🆕 تكبير الخط وإزالة كلمة "اكتب"
         const words = localGameState.gameWords;
-        const displayText = words.map(word => `<span style="white-space: nowrap;">${word}</span>`).join('<span>(.)</span>');
+        const separator = '<span style="color: #ff1515;">(.)</span>'; // 🎨 لون مميز للفاصل (تم تغييره إلى الأزرق السماوي)
+        const displayText = words.map(word => `<span style="white-space: nowrap;">${word}</span>`).join(separator);
         sendBotMessage(`<h3 style="margin:0; padding: 5px; font-size: 1em; direction: ltr; text-align: right;">${displayText}</h3>`);
         await update(gameRef, {
             inProgress: true,
