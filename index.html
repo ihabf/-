@@ -46,7 +46,6 @@ let savedBotWords = JSON.parse(localStorage.getItem("savedBotWords")) || [];
 let localGameState = {
     inProgress: false,         // هل اللعبة جارية؟
     countdownActive: false,    // هل العد التنازلي نشط؟
-    countdownInitiatorId: null,// معرف المستخدم الذي بدأ العد التنازلي
     gameWords: [],             // الكلمات الحالية للعبة
     gameStartTime: 0,          // وقت بدء اللعبة الفعلي (بعد العد التنازلي)
     lastGameId: null,          // معرف فريد لكل جولة لعبة لمنع التكرار
@@ -445,7 +444,7 @@ onValue(gameRef, async (snapshot) => {
     localGameState = {
         inProgress: firebaseState.inProgress || false,
         countdownActive: firebaseState.countdownActive || false,
-        countdownInitiatorId: firebaseState.countdownInitiatorId || null,
+        coordinatorId: firebaseState.coordinatorId || null, // 🔹 جلب هوية المنسق
         gameWords: firebaseState.gameWords || [],
         gameStartTime: firebaseState.gameStartTime || 0,
         lastGameId: firebaseState.lastGameId || null,
@@ -456,56 +455,51 @@ onValue(gameRef, async (snapshot) => {
 
     // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
     // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
-    // 💡 أي عميل يمكنه إعلان الفائز الآن، طالما لم يتم الإعلان عنه من قبل.
     if (!localGameState.inProgress && firebaseState.winnerInfo && !localGameState.winnerAnnounced) {
         const winnerData = firebaseState.winnerInfo;
 
-        // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع التكرار
-        // هذا يضمن أن الإعلان يحدث مرة واحدة فقط عبر جميع العملاء.
+        // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع أي عميل آخر من إعلان الفوز مرة أخرى
         await update(gameRef, { winnerAnnounced: true });
 
-        // استخدام gameStartTime و gameWords من Firebase لضمان الاتساق بين جميع العملاء.
-        const timeDiffSeconds = (winnerData.time - firebaseState.gameStartTime) / 1000;
+        // 🛡️ استخدام gameStartTime و gameWords من Firebase مباشرة لضمان أن جميع العملاء يستخدمون نفس البيانات
+        const startTime = firebaseState.gameStartTime || 0;
+        const timeDiffSeconds = (winnerData.time - startTime) / 1000;
+        
+        // 💡 استخدام كلمات اللعبة من `firebaseState` مباشرة لتجنب حالة السباق حيث قد يتم مسحها
         const totalChars = (firebaseState.gameWords || []).join(" ").length;
         const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
 
         // إعلان الفائز عبر البوت
         sendBotMessage(`🏆 الفائز هو ${winnerData.user} بسرعة ${wpm} كلمة في الدقيقة!`);
 
-        // لا حاجة لحذف winnerInfo فورًا، حيث يتم إعادة تعيينه عند بدء جولة جديدة.
-        // هذا يمنع تكرار الإعلان عند إعادة تحميل الصفحة.
+        // حذف معلومات الفائز من Firebase بعد إعلان النتيجة لمنع تكرار الإعلان عند إعادة تحميل الصفحة
+        // وإعادة تعيين الكلمات
+        await update(gameRef, { winnerInfo: null, gameWords: [] });
     }
-    // منطق تشغيل العد التنازلي للعميل المحدد فقط
-    // 🆕 إضافة شرط !localGameState.countdownMessagesSent لمنع تكرار رسائل العد التنازلي
-    if (localGameState.countdownActive && localGameState.countdownInitiatorId === userId && !localGameState.countdownMessagesSent) {
-        // التحقق مما إذا كان هذا العميل قد بدأ العد التنازلي بالفعل لهذه الجولة
-        if (initiatedCountdownGameId !== localGameState.lastGameId) {
-            // 🆕 وضع علامة في Firebase بأن رسائل العد التنازلي قد أُرسلت لمنع التكرار
-            // يجب أن يتم هذا قبل إرسال الرسائل لتجنب السباق
-            await update(gameRef, { countdownMessagesSent: true });
 
-            initiatedCountdownGameId = localGameState.lastGameId; // وضع علامة على هذه الجولة
+    // 🤖 فقط العميل الذي بدأ اللعبة (المنسق) هو من يقوم بالعد التنازلي
+    if (localGameState.countdownActive && localGameState.coordinatorId === userId && !localGameState.countdownMessagesSent) {
+        // 💡 وضع علامة في Firebase فورًا بأن العد التنازلي قد بدأ إرساله
+        // هذا يمنع نفس المنسق من تكرار العد إذا حدث تحديث آخر للحالة
+        await update(gameRef, { countdownMessagesSent: true });
 
-            // تسلسل العد التنازلي
-            await new Promise(resolve => setTimeout(resolve, 500));
-            sendBotMessage("3...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            sendBotMessage("2...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            sendBotMessage("1...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        // تسلسل العد التنازلي
+        await new Promise(resolve => setTimeout(resolve, 500));
+        sendBotMessage("3...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        sendBotMessage("2...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        sendBotMessage("1...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // بعد العد التنازلي، أرسل الكلمات وحدث حالة اللعبة في Firebase
-            sendBotMessage(` ${localGameState.gameWords.join(" ")}`);
-            const newGameStartTime = Date.now(); // 🔹 استخدام Date.now() للدقة
-            await set(gameRef, {
-                ...localGameState, // الاحتفاظ بالخصائص الأخرى
-                countdownActive: false, // انتهاء العد التنازلي
-                inProgress: true,      // اللعبة الآن نشطة
-                gameStartTime: newGameStartTime // 🔹 حفظ وقت البدء الدقيق
-            });
-            localGameState.gameStartTime = newGameStartTime; // 💡 تحديث الحالة المحلية فورًا
-        }
+        // بعد العد التنازلي، أرسل الكلمات وحدث حالة اللعبة في Firebase
+        sendBotMessage(` ${localGameState.gameWords.join(" ")}`);
+        const newGameStartTime = Date.now();
+        await update(gameRef, {
+            countdownActive: false,
+            inProgress: true,
+            gameStartTime: newGameStartTime
+        });
     } else if (!localGameState.inProgress && !localGameState.countdownActive) {
         // إذا لم تكن اللعبة قيد التقدم ولا يوجد عد تنازلي، أعد تعيين علامة المبادرة
         initiatedCountdownGameId = null;
@@ -546,14 +540,13 @@ async function handleMessageSend(text) {
             await set(gameRef, {
                 inProgress: false,
                 countdownActive: false,
-                countdownInitiatorId: null,
                 gameWords: [],
+                coordinatorId: null, // 🔹 إعادة تعيين المنسق
                 gameStartTime: 0,
                 lastGameId: currentGameState.lastGameId,
                 wordCount: currentGameState.wordCount,
-                countdownMessagesSent: false,
-                winnerAnnounced: false,
-                winnerInfo: null // مسح معلومات الفائز السابق
+                countdownMessagesSent: false, // 🆕 إعادة تعيين العلم عند إعادة الجولة
+                winnerAnnounced: false // 🆕 إعادة تعيين العلم عند إعادة الجولة
             });
             sendBotMessage("🔄 تم إعادة تعيين الجولة. يمكنكم البدء من جديد بالأمر 'طش'.");
         }
@@ -591,54 +584,37 @@ async function handleMessageSend(text) {
         }
         // أمر "طش" فقط - لبدء اللعبة
         else if (text === "طش") {
-            if (savedBotWords.length > 0) {
-            if (localGameState.wordCount > 0) {
+            // 💡 جلب أحدث عدد للكلمات من Firebase مباشرة لضمان الدقة
+            const latestWordCount = (await get(ref(db, 'game_state/wordCount'))).val() || localGameState.wordCount;
+
+            if (latestWordCount > 0) {
                 // إرسال رسالة المستخدم "طش" أولاً
                 push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
 
                 // 🌪️ خلط الكلمات واختيار مجموعة عشوائية جديدة لكل جولة
                 const shuffledWords = shuffleArray([...BOT_WORDS_LIST]); // خلط نسخة من القائمة الكاملة
-                const gameWordsForThisRound = shuffledWords.slice(0, localGameState.wordCount); // 🔹 استخدام العدد المشترك من Firebase
+                const gameWordsForThisRound = shuffledWords.slice(0, latestWordCount); // 🔹 استخدام العدد المحدث من Firebase
 
-                // تحديث حالة اللعبة في Firebase لبدء العد التنازلي
+                // تحديث حالة اللعبة بالكامل في Firebase لبدء العد التنازلي
                 await set(gameRef, {
                     inProgress: false, // ليست قيد التقدم بعد، العد التنازلي نشط
                     countdownActive: true,
-                    countdownInitiatorId: userId, // هذا المستخدم بدأ العد التنازلي
+                    coordinatorId: userId, // 🔹 تحديد اللاعب الحالي كمنسق لهذه الجولة
                     gameWords: gameWordsForThisRound, // استخدام الكلمات العشوائية لهذه الجولة
                     gameStartTime: 0,
                     lastGameId: new Date().getTime(), // معرف فريد لجولة اللعبة هذه
-                    wordCount: localGameState.wordCount, // الحفاظ على عدد الكلمات
+                    wordCount: latestWordCount, // الحفاظ على عدد الكلمات
                     countdownMessagesSent: false, // 🆕 التأكد من أن هذا العلم خاطئ عند بدء عد تنازلي جديد
-                    winnerAnnounced: false, // 🆕 التأكد من أن هذا العلم خاطئ عند بدء لعبة جديدة
-                    winnerInfo: null // مسح أي فائز سابق
+                    winnerAnnounced: false // 🆕 التأكد من أن هذا العلم خاطئ عند بدء لعبة جديدة
                 });
             } else {
-                sendBotMessage("⚠️ لا توجد كلمات محفوظة. استخدم `طش` مع رقم أولاً (مثال: طش5).");
+                sendBotMessage(`⚠️ لم يتم تحديد عدد الكلمات بعد. استخدم أمراً مثل "طش5" أولاً.`);
                 push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
-            }
-            } else {
-            }
             return; // إيقاف المزيد من المعالجة
         }
     }
+}
 
-    // 🏁 التحقق من الفائز في لعبة سرعة الكتابة
-    // يتم التحقق فقط إذا كانت اللعبة قيد التقدم، الرسالة ليست من البوت، والنص يطابق كلمات اللعبة.
-    if (localGameState.inProgress && !localGameState.winnerAnnounced && text === localGameState.gameWords.join(" ")) {
-        // إنهاء اللعبة في Firebase أولاً لمنع إعلانات الفوز المتعددة.
-        // العميل الأول الذي ينجح في تحديث الحالة هو فقط من سيعلن الفائز.
-        update(gameRef, {
-            inProgress: false, // أهم خطوة: إيقاف اللعبة فورًا
-            winnerInfo: { // إضافة معلومات الفائز
-                user: username,
-                time: Date.now()
-            }
-        });
-        // لا حاجة لإرسال الرسالة هنا، سيتم إرسالها أدناه
-    }
-
-    // 🔹 إرسال الرسالة العادية إلى الشات
     // إذا لم يكن أمر "طش"، أو تم التعامل مع الأمر وإيقاف المعالجة، فهذه رسالة عادية
     push(messagesRef, {
         user: username,
