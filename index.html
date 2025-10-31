@@ -482,8 +482,8 @@ onValue(gameRef, async (snapshot) => {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // بعد العد التنازلي, أرسل الكلمات وحدث حالة اللعبة في Firebase
-        // 🆕 عرض الكلمات بنقاط بينها وتصغير الخط قليلاً لمنع النسخ السهل
-        sendBotMessage(`<div style="font-size: 1em; font-weight: bold; margin:0; padding: 5px; letter-spacing: 1px; word-break: keep-all; white-space: normal;">${localGameState.gameWords.map(word => `(${word})`).join(".\u200B")}</div>`);
+        // 🆕 تكبير الخط وإزالة كلمة "اكتب"
+        sendBotMessage(`<h3 style="margin:0; padding: 5px;">${localGameState.gameWords.join(" ")}</h3>`);
         await update(gameRef, {
             inProgress: true,
             gameStartTime: serverTimestamp()
@@ -925,3 +925,4 @@ button:hover {
 </div>
 </body>
 </html>
+
