@@ -460,6 +460,7 @@ onValue(gameRef, async (snapshot) => {
     localGameState = {
         inProgress: firebaseState.inProgress || false,
         countdownActive: firebaseState.countdownActive || false,
+        coordinatorId: firebaseState.coordinatorId || null, // 🔹 جلب هوية المنسق
         gameWords: firebaseState.gameWords || [],
         gameStartTime: firebaseState.gameStartTime || 0,
         lastGameId: firebaseState.lastGameId || null,
@@ -492,41 +493,29 @@ onValue(gameRef, async (snapshot) => {
         await update(gameRef, { winnerInfo: null, gameWords: [] });
     }
 
-    // 🤖 محاكاة البوت كمنسق: أول عميل يرى العد التنازلي نشطًا يتولى المهمة
-    if (localGameState.countdownActive && !localGameState.countdownMessagesSent) {
-        // التحقق مما إذا كان هذا العميل قد تولى التنسيق بالفعل لهذه الجولة
-        if (initiatedCountdownGameId !== localGameState.lastGameId) {
-            initiatedCountdownGameId = localGameState.lastGameId; // وضع علامة محلية فورًا لمنع المحاولة مرة أخرى
+    // 🤖 فقط العميل الذي بدأ اللعبة (المنسق) هو من يقوم بالعد التنازلي
+    if (localGameState.countdownActive && localGameState.coordinatorId === userId && !localGameState.countdownMessagesSent) {
+        // 💡 وضع علامة في Firebase فورًا بأن العد التنازلي قد بدأ إرساله
+        // هذا يمنع نفس المنسق من تكرار العد إذا حدث تحديث آخر للحالة
+        await update(gameRef, { countdownMessagesSent: true });
 
-            // 💡 محاولة "قفل" مهمة التنسيق.
-            // سيقوم أول عميل ينجح في هذا التحديث بتولي المهمة.
-            // نستخدم onDisconnect لضمان تحرير القفل إذا انقطع اتصال المنسق.
-            const coordinatorRef = ref(db, 'game_state/coordinatorLock');
-            await onDisconnect(coordinatorRef).remove(); // إذا انقطع اتصالي، حرر القفل
-            await set(coordinatorRef, userId); // محاولة أخذ القفل
-            const lockHolder = (await get(coordinatorRef)).val();
+        // تسلسل العد التنازلي
+        await new Promise(resolve => setTimeout(resolve, 500));
+        sendBotMessage("3...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        sendBotMessage("2...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        sendBotMessage("1...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // تسلسل العد التنازلي
-            await new Promise(resolve => setTimeout(resolve, 500));
-            sendBotMessage("3...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            sendBotMessage("2...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            sendBotMessage("1...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // بعد العد التنازلي، أرسل الكلمات وحدث حالة اللعبة في Firebase
-            sendBotMessage(` ${localGameState.gameWords.join(" ")}`);
-            const newGameStartTime = Date.now(); // 🔹 استخدام Date.now() للدقة
-            await set(gameRef, {
-                ...localGameState, // الاحتفاظ بالخصائص الأخرى
-                countdownActive: false, // انتهاء العد التنازلي
-                inProgress: true,      // اللعبة الآن نشطة
-                gameStartTime: newGameStartTime // 🔹 حفظ وقت البدء الدقيق
-            }, { merge: true }); // استخدام merge للحفاظ على القفل
-            await remove(coordinatorRef); // تحرير القفل بعد الانتهاء بنجاح
-            localGameState.gameStartTime = newGameStartTime; // 💡 تحديث الحالة المحلية فورًا
-        }
+        // بعد العد التنازلي، أرسل الكلمات وحدث حالة اللعبة في Firebase
+        sendBotMessage(` ${localGameState.gameWords.join(" ")}`);
+        const newGameStartTime = Date.now();
+        await update(gameRef, {
+            countdownActive: false,
+            inProgress: true,
+            gameStartTime: newGameStartTime
+        });
     } else if (!localGameState.inProgress && !localGameState.countdownActive) {
         // إذا لم تكن اللعبة قيد التقدم ولا يوجد عد تنازلي، أعد تعيين علامة المبادرة
         initiatedCountdownGameId = null;
@@ -568,6 +557,7 @@ async function handleMessageSend(text) {
                 inProgress: false,
                 countdownActive: false,
                 gameWords: [],
+                coordinatorId: null, // 🔹 إعادة تعيين المنسق
                 gameStartTime: 0,
                 lastGameId: currentGameState.lastGameId,
                 wordCount: currentGameState.wordCount,
@@ -625,6 +615,7 @@ async function handleMessageSend(text) {
                 await set(gameRef, {
                     inProgress: false, // ليست قيد التقدم بعد، العد التنازلي نشط
                     countdownActive: true,
+                    coordinatorId: userId, // 🔹 تحديد اللاعب الحالي كمنسق لهذه الجولة
                     gameWords: gameWordsForThisRound, // استخدام الكلمات العشوائية لهذه الجولة
                     gameStartTime: 0,
                     lastGameId: new Date().getTime(), // معرف فريد لجولة اللعبة هذه
@@ -964,4 +955,3 @@ button:hover {
 </div>
 </body>
 </html>
-
