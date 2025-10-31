@@ -617,6 +617,8 @@ async function handleMessageSend(text) {
                 sendBotMessage("⚠️ لا توجد كلمات محفوظة. استخدم `طش` مع رقم أولاً (مثال: طش5).");
                 push(messagesRef, { user: username, userId: userId, color: userColor, text, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
             }
+            } else {
+            }
             return; // إيقاف المزيد من المعالجة
         }
     }
