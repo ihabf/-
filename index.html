@@ -45,6 +45,8 @@ let savedBotWords = JSON.parse(localStorage.getItem("savedBotWords")) || [];
 // 🏁 حالة اللعبة المحلية (تتم مزامنتها مع Firebase)
 let localGameState = {
     inProgress: false,         // هل اللعبة جارية؟
+    countdownActive: false,    // 🆕 هل العد التنازلي نشط؟
+    initiatorId: null,         // 🆕 من بدأ اللعبة؟
     gameWords: [],             // الكلمات الحالية للعبة
     gameStartTime: 0,          // وقت بدء اللعبة الفعلي (بعد العد التنازلي)
     winnerInfo: null,          // معلومات الفائز
@@ -435,6 +437,8 @@ onValue(gameRef, async (snapshot) => {
 
     // مزامنة الحالة المحلية مع Firebase
     localGameState.inProgress = firebaseState.inProgress || false;
+    localGameState.countdownActive = firebaseState.countdownActive || false;
+    localGameState.initiatorId = firebaseState.initiatorId || null;
     localGameState.gameWords = firebaseState.gameWords || [];
     localGameState.gameStartTime = firebaseState.gameStartTime || 0;
     localGameState.winnerInfo = firebaseState.winnerInfo || null;
@@ -442,7 +446,7 @@ onValue(gameRef, async (snapshot) => {
 
     // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
     // يتم هذا التحقق عندما يظهر winnerInfo في Firebase
-    if (localGameState.winnerInfo) {
+    if (localGameState.winnerInfo && userId === localGameState.initiatorId) { // 🆕 النتائج تظهر فقط لمن بدأ اللعبة
         const winnerData = localGameState.winnerInfo;
 
         // ⏱️ حساب الفارق الزمني بدقة باستخدام التوقيت من الخادم
@@ -460,6 +464,29 @@ onValue(gameRef, async (snapshot) => {
             gameWords: [],
             inProgress: false,
             gameStartTime: 0
+        });
+    }
+
+    // 🤖 فقط العميل الذي بدأ اللعبة (المبادر) هو من يقوم بالعد التنازلي
+    if (localGameState.countdownActive && localGameState.initiatorId === userId) {
+        // منع تكرار العد التنازلي عن طريق إعادة تعيين الحالة فورًا
+        await update(gameRef, { countdownActive: false });
+
+        // تسلسل العد التنازلي
+        await new Promise(resolve => setTimeout(resolve, 500));
+        sendBotMessage("3...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        sendBotMessage("2...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        sendBotMessage("1...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // بعد العد التنازلي, أرسل الكلمات وحدث حالة اللعبة في Firebase
+        // 🆕 تكبير الخط وإزالة كلمة "اكتب"
+        sendBotMessage(`<h3 style="margin:0; padding: 5px;">${localGameState.gameWords.join(" ")}</h3>`);
+        await update(gameRef, {
+            inProgress: true,
+            gameStartTime: serverTimestamp()
         });
     }
 });
@@ -496,6 +523,7 @@ async function handleMessageSend(text) {
         if (currentGameState.inProgress) {
             // إعادة تعيين حالة اللعبة في Firebase
             await set(gameRef, {
+                countdownActive: false,
                 inProgress: false,
                 gameWords: [],
                 gameStartTime: 0,
@@ -530,7 +558,7 @@ async function handleMessageSend(text) {
     if (text.startsWith("طش")) {
         const currentGameStateSnapshot = await get(gameRef); // الحصول على أحدث حالة للعبة من Firebase
         const currentGameState = currentGameStateSnapshot.val() || {};
-        if (currentGameState.inProgress) {
+        if (currentGameState.inProgress || currentGameState.countdownActive) {
             sendBotMessage("لعبة سرعة الكتابة جارية بالفعل. انتظر حتى تنتهي الجولة الحالية.");
         }
 
@@ -558,14 +586,15 @@ async function handleMessageSend(text) {
 
                 // تحديث حالة اللعبة بالكامل في Firebase لبدء اللعبة
                 await set(gameRef, {
-                    inProgress: true,
+                    inProgress: false, // اللعبة لم تبدأ بعد، العد التنازلي أولاً
+                    countdownActive: true, // 🆕 تفعيل العد التنازلي
+                    initiatorId: userId, // 🆕 تحديد من بدأ اللعبة
                     gameWords: gameWordsForThisRound, // استخدام الكلمات العشوائية لهذه الجولة
-                    gameStartTime: serverTimestamp(), // ⏱️ استخدام توقيت الخادم
+                    gameStartTime: 0, // سيتم تحديده بعد العد التنازلي
                     wordCount: latestWordCount, // الحفاظ على عدد الكلمات
                     winnerInfo: null
                 });
-                // إرسال الكلمات المطلوبة إلى الشات
-                sendBotMessage(`اكتب: ${gameWordsForThisRound.join(" ")}`);
+                // لا نرسل الكلمات هنا، سيتم إرسالها بعد العد التنازلي
             } else {
                 sendBotMessage(`⚠️ لم يتم تحديد عدد الكلمات بعد. استخدم أمراً مثل "طش5" أولاً.`);
             }
