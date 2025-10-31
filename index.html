@@ -3,7 +3,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>💬 دردشة مؤقتة</title>
 
 <script type="module">
@@ -475,27 +475,36 @@ onValue(gameRef, async (snapshot) => {
 
     // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
     // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
-    if (!localGameState.inProgress && firebaseState.winnerInfo && !localGameState.winnerAnnounced) {
-        const winnerData = firebaseState.winnerInfo;
+    if (!firebaseState.inProgress && firebaseState.winnerInfo && !firebaseState.winnerAnnounced) {
+        // 💡 محاولة "حجز" مهمة إعلان الفائز باستخدام معاملة ذرية
+        // هذا يضمن أن عميلًا واحدًا فقط سينجح في هذا التحديث
+        const { committed, snapshot } = await runTransaction(gameRef, (currentData) => {
+            if (currentData && !currentData.winnerAnnounced && currentData.winnerInfo) {
+                // إذا لم يتم إعلان الفائز بعد، قم بتحديث الحالة
+                currentData.winnerAnnounced = true;
+                return currentData; // إرجاع البيانات المحدثة لحفظها
+            }
+            // إذا تم إعلان الفائز بالفعل من قبل عميل آخر، قم بالإلغاء
+            return; // undefined يعني إلغاء المعاملة
+        });
 
-        // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع أي عميل آخر من إعلان الفوز مرة أخرى
-        await update(gameRef, { winnerAnnounced: true });
+        // فقط العميل الذي نجح في المعاملة (committed = true) هو من سيكمل
+        if (committed) {
+            const winnerData = firebaseState.winnerInfo; // استخدام البيانات التي أدت إلى هذا التحديث
+            const startTime = firebaseState.gameStartTime || 0;
+            const timeDiffSeconds = (winnerData.time - startTime) / 1000;
+            const totalChars = (firebaseState.gameWords || []).join(" ").length;
+            const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
 
-        // 🛡️ استخدام gameStartTime و gameWords من Firebase مباشرة لضمان أن جميع العملاء يستخدمون نفس البيانات
-        const startTime = firebaseState.gameStartTime || 0;
-        const timeDiffSeconds = (winnerData.time - startTime) / 1000;
+            // إعلان الفائز عبر البوت
+            sendBotMessage(`🏆 الفائز هو ${winnerData.user} بسرعة ${wpm} كلمة في الدقيقة!`);
 
-        // 💡 استخدام كلمات اللعبة من `firebaseState` مباشرة لتجنب حالة السباق حيث قد يتم مسحها
-        const totalChars = (firebaseState.gameWords || []).join(" ").length;
-        const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
-
-        // إعلان الفائز عبر البوت
-        sendBotMessage(`🏆 الفائز هو ${winnerData.user} بسرعة ${wpm} كلمة في الدقيقة!`);
-
-        // حذف معلومات الفائز من Firebase بعد إعلان النتيجة لمنع تكرار الإعلان عند إعادة تحميل الصفحة
-        // وإعادة تعيين الكلمات
-        await update(gameRef, { winnerInfo: null, gameWords: [] });
-    } else if (localGameState.countdownActive && !localGameState.countdownMessagesSent) {
+            // حذف معلومات الفائز والكلمات بعد إعلان النتيجة
+            await update(gameRef, { winnerInfo: null, gameWords: [] });
+        }
+    }
+    
+    if (localGameState.countdownActive && !localGameState.countdownMessagesSent) {
         // التحقق مما إذا كان هذا العميل قد تولى التنسيق بالفعل لهذه الجولة
         if (initiatedCountdownGameId !== localGameState.lastGameId) {
             initiatedCountdownGameId = localGameState.lastGameId; // وضع علامة محلية فورًا لمنع المحاولة مرة أخرى
