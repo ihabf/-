@@ -367,9 +367,16 @@ onChildAdded(messagesRef, snapshot=>{
     update(ref(db, `messages/${messageKey}`), { replied: true });
   }
 
+  // 🔹 دالة لتوحيد النص وإزالة المسافات الزائدة والفواصل غير المرئية
+  // هذا يحل مشكلة عدم تطابق الإجابات بين الكمبيوتر والهاتف
+  function normalizeText(str) {
+      if (!str) return "";
+      return str.replace(/\s+/g, ' ').trim();
+  }
+
   // 🏁 التحقق من الفائز في لعبة سرعة الكتابة
   // يتم التحقق فقط إذا كانت اللعبة قيد التقدم، الرسالة ليست من البوت، النص يطابق كلمات اللعبة، ووقت الرسالة بعد بدء اللعبة.
-  if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp >= localGameState.gameStartTime) {
+  if (localGameState.inProgress && m.userId !== "bot_id" && normalizeText(m.text) === normalizeText(localGameState.gameWords.join(" ")) && m.timestamp >= localGameState.gameStartTime) {
     // إنهاء اللعبة في Firebase أولاً لمنع إعلانات الفوز المتعددة
     // العميل الأول الذي ينجح في تحديث الحالة هو فقط من سيعلن الفائز
     // 💡 استخدام 'update' لتغيير فقط الخصائص الضرورية وعدم مسح 'gameWords' و 'gameStartTime'
