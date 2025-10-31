@@ -472,16 +472,17 @@ onValue(gameRef, async (snapshot) => {
 
     // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
     // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
-    // 💡 فقط العميل الذي بدأ اللعبة هو من يعلن الفائز لضمان دقة وقت البدء
-    if (!localGameState.inProgress && firebaseState.winnerInfo && localGameState.countdownInitiatorId === userId && !localGameState.winnerAnnounced) {
+    // 💡 تم التعديل: أي عميل يمكنه إعلان الفوز لضمان أن الفائز نفسه يحسب سرعته
+    if (!localGameState.inProgress && firebaseState.winnerInfo && !localGameState.winnerAnnounced) {
         const winnerData = firebaseState.winnerInfo;
 
-        // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع التكرار
+        // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع أي عميل آخر من إعلان الفوز مرة أخرى
         await update(gameRef, { winnerAnnounced: true });
 
-        // استخدام gameStartTime من الحالة المحلية للعميل البادئ لأنه الأكثر دقة
-        const timeDiffSeconds = (winnerData.time - localGameState.gameStartTime) / 1000;
-        // 🛡️ استخدام localGameState.gameWords بدلاً من firebaseState.gameWords
+        // 🛡️ استخدام gameStartTime و gameWords من Firebase مباشرة لضمان أن جميع العملاء يستخدمون نفس البيانات
+        const startTime = firebaseState.gameStartTime || 0;
+        const timeDiffSeconds = (winnerData.time - startTime) / 1000;
+        
         const totalChars = (localGameState.gameWords || []).join(" ").length;
         const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
 
