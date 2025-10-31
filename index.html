@@ -369,22 +369,7 @@ onChildAdded(messagesRef, snapshot=>{
   }
 
   // 🏁 التحقق من الفائز في لعبة سرعة الكتابة
-  // يتم التحقق فقط إذا كانت اللعبة قيد التقدم، الرسالة ليست من البوت، النص يطابق كلمات اللعبة، ووقت الرسالة بعد بدء اللعبة.
-  // 💡 تم نقل هذا المنطق إلى onValue(gameRef) لضمان المزامنة
-  if (localGameState.inProgress && !localGameState.winnerAnnounced && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ")) {
-      // 🛡️ نقوم بجلب gameStartTime مباشرة من Firebase للتأكد من أنه ليس قديمًا
-      get(ref(db, 'game_state/gameStartTime')).then(startTimeSnapshot => {
-          const authoritativeStartTime = startTimeSnapshot.val() || 0;
-          if (m.timestamp >= authoritativeStartTime) {
-              // إنهاء اللعبة في Firebase. العميل الأول الذي ينجح هو من يحدد الفائز.
-              update(gameRef, {
-                  inProgress: false,
-                  countdownActive: false,
-                  winnerInfo: { user: m.user, time: m.timestamp }
-              });
-          }
-      });
-  }
+  // 💡 تم نقل منطق التحقق من الفائز بالكامل إلى onValue(gameRef) لضمان أن "البوت" هو من يحلل النتيجة.
 
   // 🔽 عرض الرسائل الجديدة فقط في الشات
   // إنشاء الحاوية
@@ -471,6 +456,33 @@ onValue(gameRef, async (snapshot) => {
         countdownMessagesSent: firebaseState.countdownMessagesSent || false, // 🆕 تحديث الحالة المحلية
         winnerAnnounced: firebaseState.winnerAnnounced || false // 🆕 تحديث الحالة المحلية
     };
+
+    // 🤖 منطق البوت لتحليل الرسائل وتحديد الفائز (يعمل فقط عندما تكون اللعبة جارية)
+    if (localGameState.inProgress && !localGameState.winnerAnnounced) {
+        // جلب الرسائل التي أُرسلت بعد بدء اللعبة
+        const messagesQuery = query(messagesRef, orderByChild('timestamp'), startAt(localGameState.gameStartTime));
+        const messagesSnapshot = await get(messagesQuery);
+
+        if (messagesSnapshot.exists()) {
+            const messages = messagesSnapshot.val();
+            const gameWordsString = localGameState.gameWords.join(" ");
+
+            // البحث عن أول رسالة مطابقة
+            for (const key in messages) {
+                const msg = messages[key];
+                if (msg.userId !== "bot_id" && msg.text.trim() === gameWordsString) {
+                    // 🏆 وجدنا الفائز! قم بتحديث حالة اللعبة لإنهاءها وتسجيل الفائز.
+                    // هذا الإجراء سيؤدي إلى تفعيل الجزء التالي من الكود لإعلان النتيجة.
+                    await update(gameRef, {
+                        inProgress: false,
+                        winnerInfo: { user: msg.user, time: msg.timestamp }
+                    });
+                    // أوقف البحث بمجرد العثور على الفائز الأول
+                    return; 
+                }
+            }
+        }
+    }
 
     // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
     // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
