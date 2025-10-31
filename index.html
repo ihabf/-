@@ -483,7 +483,8 @@ onValue(gameRef, async (snapshot) => {
         const startTime = firebaseState.gameStartTime || 0;
         const timeDiffSeconds = (winnerData.time - startTime) / 1000;
         
-        const totalChars = (localGameState.gameWords || []).join(" ").length;
+        // 💡 استخدام كلمات اللعبة من `firebaseState` مباشرة لتجنب حالة السباق حيث قد يتم مسحها
+        const totalChars = (firebaseState.gameWords || []).join(" ").length;
         const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
 
         // إعلان الفائز عبر البوت
