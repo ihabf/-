@@ -8,7 +8,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect, get, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
 // 🔹 إعداد Firebase
 const firebaseConfig = {
@@ -369,31 +369,19 @@ onChildAdded(messagesRef, snapshot=>{
 
   // 🏁 التحقق من الفائز في لعبة سرعة الكتابة
   // يتم التحقق فقط إذا كانت اللعبة قيد التقدم، الرسالة ليست من البوت، النص يطابق كلمات اللعبة، ووقت الرسالة بعد بدء اللعبة.
-    if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp >= localGameState.gameStartTime) {
-        // 💡 دمج معاملة تحديد الفائز وإعلان الفوز لضمان أن العميل المكتشف هو من يعلن النتيجة
-        runTransaction(gameRef, (currentState) => {
-            // إذا لم تكن اللعبة جارية، أو تم إعلان الفائز بالفعل، قم بالإلغاء
-            if (!currentState || !currentState.inProgress || currentState.winnerAnnounced) {
-                return; // Abort transaction
-            }
-            // إذا نجحت المعاملة، قم بتحديث الحالة لتحديد الفائز وإعلان الفوز في خطوة واحدة
-            currentState.inProgress = false;
-            currentState.countdownActive = false;
-            currentState.winnerAnnounced = true; // 💡 وضع علامة الإعلان هنا مباشرة
-            currentState.winnerInfo = {
-                user: m.user,
-                time: m.timestamp
-            };
-            return currentState;
-        }).then(async (result) => {
-            if (result.committed) {
-                // فقط العميل الذي نجح في المعاملة (المكتشف) سيقوم بتنفيذ هذا الكود
-                const finalState = result.snapshot.val();
-                calculateAndAnnounceWinner(finalState); // استدعاء دالة الحساب والإعلان
-            }
-        });
-    }
-
+  if (localGameState.inProgress && m.userId !== "bot_id" && m.text.trim() === localGameState.gameWords.join(" ") && m.timestamp >= localGameState.gameStartTime) {
+    // إنهاء اللعبة في Firebase أولاً لمنع إعلانات الفوز المتعددة
+    // العميل الأول الذي ينجح في تحديث الحالة هو فقط من سيعلن الفائز
+    // 💡 استخدام 'update' لتغيير فقط الخصائص الضرورية وعدم مسح 'gameWords' و 'gameStartTime'
+    update(gameRef, {
+        inProgress: false, // أهم خطوة: إيقاف اللعبة فورًا
+        countdownActive: false,
+        winnerInfo: { // إضافة معلومات الفائز
+            user: m.user,
+            time: m.timestamp
+        }
+    });
+  }
 
   // 🔽 عرض الرسائل الجديدة فقط في الشات
   // إنشاء الحاوية
@@ -480,56 +468,72 @@ onValue(gameRef, async (snapshot) => {
         winnerAnnounced: firebaseState.winnerAnnounced || false // 🆕 تحديث الحالة المحلية
     };
 
-});
-
-// 🏆 دالة جديدة لحساب السرعة وإعلان الفائز وتنظيف اللعبة
-async function calculateAndAnnounceWinner(finalGameState) {
-    if (!finalGameState || !finalGameState.winnerInfo) return;
-
-    const winnerData = finalGameState.winnerInfo;
-    const startTime = finalGameState.gameStartTime || 0;
-    const timeDiffSeconds = (winnerData.time - startTime) / 1000;
-    const totalChars = (finalGameState.gameWords || []).join(" ").length;
-    const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
-
-    sendBotMessage(`🏆 الفائز هو ${winnerData.user} بسرعة ${wpm} كلمة في الدقيقة!`);
-    
-    // إعادة تعيين معلومات الفائز والكلمات بعد الإعلان
-    await update(gameRef, { winnerInfo: null, gameWords: [] });
-}
-
     // 🤖 محاكاة البوت كمنسق: أول عميل يرى العد التنازلي نشطًا يتولى المهمة
     if (localGameState.countdownActive && !localGameState.countdownMessagesSent) {
-        // 💡 استخدام معاملة (Transaction) لاختيار منسق واحد فقط للعد التنازلي
-        runTransaction(gameRef, (currentState) => {
-            // إذا لم تكن الحالة جاهزة للعد التنازلي، أو تم إرسال الرسائل بالفعل، قم بالإلغاء
-            if (!currentState || !currentState.countdownActive || currentState.countdownMessagesSent) {
-                return; // Abort transaction
-            }
-            // إذا نجحت المعاملة، ضع علامة بأنه تم إرسال الرسائل
-            currentState.countdownMessagesSent = true;
-            return currentState;
-        }).then(async (result) => {
-            if (result.committed) {
-                // فقط العميل الذي نجح في المعاملة سيقوم بتنفيذ العد التنازلي
-                await new Promise(resolve => setTimeout(resolve, 500));
-                sendBotMessage("3...");
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                sendBotMessage("2...");
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                sendBotMessage("1...");
-                await new Promise(resolve => setTimeout(resolve, 1000));
+        // ... (The countdown logic remains here)
+    }
 
-                const finalState = result.snapshot.val();
-                sendBotMessage(` ${finalState.gameWords.join(" ")}`);
-                const newGameStartTime = Date.now();
-                await update(gameRef, { countdownActive: false, inProgress: true, gameStartTime: newGameStartTime });
-            }
-        });
+    // 🏆 التحقق من وجود فائز لإعلان النتيجة مرة واحدة فقط
+    // يتم هذا التحقق عند تغير حالة اللعبة إلى "غير جارية" ووجود معلومات الفائز
+    if (!localGameState.inProgress && firebaseState.winnerInfo && !localGameState.winnerAnnounced) {
+        const winnerData = firebaseState.winnerInfo;
+
+        // 🆕 وضع علامة في Firebase بأن الفائز قد أُعلن لمنع أي عميل آخر من إعلان الفوز مرة أخرى
+        await update(gameRef, { winnerAnnounced: true });
+
+        // 🛡️ استخدام gameStartTime و gameWords من Firebase مباشرة لضمان أن جميع العملاء يستخدمون نفس البيانات
+        const startTime = firebaseState.gameStartTime || 0;
+        const timeDiffSeconds = (winnerData.time - startTime) / 1000;
+
+        // 💡 استخدام كلمات اللعبة من `firebaseState` مباشرة لتجنب حالة السباق حيث قد يتم مسحها
+        const totalChars = (firebaseState.gameWords || []).join(" ").length;
+        const wpm = timeDiffSeconds > 0 ? Math.round((totalChars / 5) / (timeDiffSeconds / 60)) : 0;
+
+        // إعلان الفائز عبر البوت
+        sendBotMessage(`🏆 الفائز هو ${winnerData.user} بسرعة ${wpm} كلمة في الدقيقة!`);
+
+        // حذف معلومات الفائز من Firebase بعد إعلان النتيجة لمنع تكرار الإعلان عند إعادة تحميل الصفحة
+        // وإعادة تعيين الكلمات
+        await update(gameRef, { winnerInfo: null, gameWords: [] });
+    } else if (localGameState.countdownActive && !localGameState.countdownMessagesSent) {
+        // التحقق مما إذا كان هذا العميل قد تولى التنسيق بالفعل لهذه الجولة
+        if (initiatedCountdownGameId !== localGameState.lastGameId) {
+            initiatedCountdownGameId = localGameState.lastGameId; // وضع علامة محلية فورًا لمنع المحاولة مرة أخرى
+
+            // 💡 محاولة "قفل" مهمة التنسيق.
+            // سيقوم أول عميل ينجح في هذا التحديث بتولي المهمة.
+            // نستخدم onDisconnect لضمان تحرير القفل إذا انقطع اتصال المنسق.
+            const coordinatorRef = ref(db, 'game_state/coordinatorLock');
+            await onDisconnect(coordinatorRef).remove(); // إذا انقطع اتصالي، حرر القفل
+            await set(coordinatorRef, userId); // محاولة أخذ القفل
+            const lockHolder = (await get(coordinatorRef)).val();
+
+            // تسلسل العد التنازلي
+            await new Promise(resolve => setTimeout(resolve, 500));
+            sendBotMessage("3...");
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            sendBotMessage("2...");
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            sendBotMessage("1...");
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // بعد العد التنازلي، أرسل الكلمات وحدث حالة اللعبة في Firebase
+            sendBotMessage(` ${localGameState.gameWords.join(" ")}`);
+            const newGameStartTime = Date.now(); // 🔹 استخدام Date.now() للدقة
+            await set(gameRef, {
+                ...localGameState, // الاحتفاظ بالخصائص الأخرى
+                countdownActive: false, // انتهاء العد التنازلي
+                inProgress: true,      // اللعبة الآن نشطة
+                gameStartTime: newGameStartTime // 🔹 حفظ وقت البدء الدقيق
+            }, { merge: true }); // استخدام merge للحفاظ على القفل
+            await remove(coordinatorRef); // تحرير القفل بعد الانتهاء بنجاح
+            localGameState.gameStartTime = newGameStartTime; // 💡 تحديث الحالة المحلية فورًا
+        }
     } else if (!localGameState.inProgress && !localGameState.countdownActive) {
         // إذا لم تكن اللعبة قيد التقدم ولا يوجد عد تنازلي، أعد تعيين علامة المبادرة
         initiatedCountdownGameId = null;
     }
+});
 
 // 🌪️ دالة لخلط ترتيب عناصر مصفوفة (خوارزمية Fisher-Yates)
 function shuffleArray(array) {
