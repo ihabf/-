@@ -483,7 +483,9 @@ onValue(gameRef, async (snapshot) => {
 
         // بعد العد التنازلي, أرسل الكلمات وحدث حالة اللعبة في Firebase
         // 🆕 تكبير الخط وإزالة كلمة "اكتب"
-        sendBotMessage(`<h3 style="margin:0; padding: 5px;">${localGameState.gameWords.join("(.)")}</h3>`);
+        const words = localGameState.gameWords;
+        const displayText = words.map(word => `<span style="white-space: nowrap;">${word}</span>`).join('<span>(.)</span>');
+        sendBotMessage(`<h3 style="margin:0; padding: 5px; font-size: 1em; direction: ltr; text-align: right;">${displayText}</h3>`);
         await update(gameRef, {
             inProgress: true,
             gameStartTime: serverTimestamp()
